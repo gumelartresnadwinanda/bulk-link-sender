@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderTable() {
     const filtered = getFilteredLinks();
-    managerTableBody.innerHTML = '';
+    managerTableBody.textContent = '';
 
     if (filtered.length === 0) {
       managerEmptyState.classList.remove('hidden');
@@ -192,39 +192,87 @@ document.addEventListener('DOMContentLoaded', async () => {
       const statusClass = item.status === 'sent' ? 'sent' : (item.status === 'failed' ? 'failed' : 'pending');
       const statusLabel = item.status === 'sent' ? 'Sent' : (item.status === 'failed' ? 'Failed' : 'Pending');
 
-      tr.innerHTML = `
-        <td class="th-cb">
-          <input type="checkbox" class="mgr-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
-        </td>
-        <td class="th-domain">
-          <span class="cell-domain-tag">${escapeHtml(item.domain || 'web')}</span>
-        </td>
-        <td class="th-title">
-          <div class="cell-title-text" title="${escapeHtml(item.title)}">${escapeHtml(item.title || item.url)}</div>
-          <a href="${escapeHtml(item.url)}" target="_blank" class="cell-url-anchor" title="${escapeHtml(item.url)}">${escapeHtml(item.url)}</a>
-        </td>
-        <td class="th-status">
-          <span class="status-pill ${statusClass}" title="${escapeHtml(item.errorMessage || '')}">${statusLabel}</span>
-        </td>
-        <td class="th-date">
-          <span class="cell-date-text">${formatDate(item.addedAt)}</span>
-        </td>
-        <td class="th-actions">
-          <div class="table-actions-cell">
-            <button class="icon-btn-action send-action" data-action="send" data-id="${item.id}" title="Send bubble to Telegram">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M21.6 3.4a1.8 1.8 0 0 0-1.9-.3L2.8 10.4c-.9.4-1 1.6-.2 2.1l4.8 2.5 1.9 5.8c.2.6.9 1 1.5.8.5-.1.8-.4 1-.8l2.6-3.2 4.9 3.6c.7.5 1.7.2 2-.6l3.5-15.6c.2-.8-.2-1.4-.7-1.6z"/>
-              </svg>
-            </button>
-            <button class="icon-btn-action delete-action" data-action="delete" data-id="${item.id}" title="Delete link">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </button>
-          </div>
-        </td>
-      `;
+      // Checkbox
+      const tdCb = document.createElement('td');
+      tdCb.className = 'th-cb';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'mgr-checkbox';
+      cb.dataset.id = item.id;
+      cb.checked = isChecked;
+      tdCb.appendChild(cb);
+
+      // Domain
+      const tdDomain = document.createElement('td');
+      tdDomain.className = 'th-domain';
+      const domainTag = document.createElement('span');
+      domainTag.className = 'cell-domain-tag';
+      domainTag.textContent = item.domain || 'web';
+      tdDomain.appendChild(domainTag);
+
+      // Title & URL
+      const tdTitle = document.createElement('td');
+      tdTitle.className = 'th-title';
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'cell-title-text';
+      titleDiv.title = item.title || item.url;
+      titleDiv.textContent = item.title || item.url;
+      const urlAnchor = document.createElement('a');
+      urlAnchor.href = item.url;
+      urlAnchor.target = '_blank';
+      urlAnchor.className = 'cell-url-anchor';
+      urlAnchor.title = item.url;
+      urlAnchor.textContent = item.url;
+      tdTitle.appendChild(titleDiv);
+      tdTitle.appendChild(urlAnchor);
+
+      // Status
+      const tdStatus = document.createElement('td');
+      tdStatus.className = 'th-status';
+      const statusPill = document.createElement('span');
+      statusPill.className = `status-pill ${statusClass}`;
+      if (item.errorMessage) statusPill.title = item.errorMessage;
+      statusPill.textContent = statusLabel;
+      tdStatus.appendChild(statusPill);
+
+      // Date
+      const tdDate = document.createElement('td');
+      tdDate.className = 'th-date';
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'cell-date-text';
+      dateSpan.textContent = formatDate(item.addedAt);
+      tdDate.appendChild(dateSpan);
+
+      // Actions
+      const tdActions = document.createElement('td');
+      tdActions.className = 'th-actions';
+      const actionsCell = document.createElement('div');
+      actionsCell.className = 'table-actions-cell';
+
+      const sendBtn = document.createElement('button');
+      sendBtn.className = 'icon-btn-action send-action';
+      sendBtn.dataset.action = 'send';
+      sendBtn.dataset.id = item.id;
+      sendBtn.title = 'Send bubble to Telegram';
+      sendBtn.textContent = '✈';
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'icon-btn-action delete-action';
+      deleteBtn.dataset.action = 'delete';
+      deleteBtn.dataset.id = item.id;
+      deleteBtn.title = 'Delete link';
+      deleteBtn.textContent = '🗑';
+
+      actionsCell.appendChild(sendBtn);
+      actionsCell.appendChild(deleteBtn);
+      tdActions.appendChild(actionsCell);
+
+      tr.appendChild(tdCb);
+      tr.appendChild(tdDomain);
+      tr.appendChild(tdTitle);
+      tr.appendChild(tdStatus);
+      tr.appendChild(tdDate);
+      tr.appendChild(tdActions);
 
       managerTableBody.appendChild(tr);
     });
@@ -311,8 +359,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!item) return;
 
     buttonEl.disabled = true;
-    const origHtml = buttonEl.innerHTML;
-    buttonEl.innerHTML = '<span class="spinner"></span>';
+    const origText = buttonEl.textContent;
+    buttonEl.textContent = '⏳';
 
     try {
       const result = await TelegramService.sendSingleBubble(settings.botToken, settings.chatId, item, settings);
@@ -327,7 +375,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       showAlert(`Error: ${err.message}`, 'error');
     } finally {
-      buttonEl.innerHTML = origHtml;
+      buttonEl.textContent = origText;
       buttonEl.disabled = false;
     }
   }

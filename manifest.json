@@ -18,7 +18,18 @@
     "default_title": "Bulk Link Sender to Telegram"
   },
   "background": {
+    "scripts": [
+      "scripts/storage.js",
+      "scripts/telegram.js",
+      "background/service-worker.js"
+    ],
     "service_worker": "background/service-worker.js"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "bulk-link-sender@local",
+      "strict_min_version": "109.0"
+    }
   },
   "permissions": [
     "storage",

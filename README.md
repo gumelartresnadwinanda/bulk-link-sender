@@ -17,14 +17,22 @@ A Chrome Extension (Manifest V3) that captures active tab URLs, organizes them i
 
 ---
 
-## How to Install in Chrome
+## How to Install
 
+### In Google Chrome (or Brave / Edge / Opera)
 1. Open Google Chrome.
 2. Navigate to `chrome://extensions/` in the address bar.
 3. Enable **Developer mode** using the toggle switch in the top-right corner.
 4. Click the **Load unpacked** button in the top-left.
 5. Select this folder: `e:\Code\2026\bulk-link-sender`
-6. Pin **Bulk Link Sender** to your Chrome toolbar for quick access.
+6. Pin **Bulk Link Sender** to your toolbar.
+
+### In Mozilla Firefox
+1. Open Mozilla Firefox.
+2. Navigate to `about:debugging#/runtime/this-firefox` in the address bar.
+3. Click **Load Temporary Add-on...**
+4. Select `manifest.json` inside this folder: `e:\Code\2026\bulk-link-sender\manifest.json`
+5. The extension is immediately loaded and ready to use!
 
 ---
 

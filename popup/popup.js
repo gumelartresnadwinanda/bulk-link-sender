@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderTable() {
     const filtered = getFilteredLinks();
-    linksTableBody.innerHTML = '';
+    linksTableBody.textContent = '';
 
     // Handle Empty States
     if (allLinks.length === 0) {
@@ -265,38 +265,78 @@ document.addEventListener('DOMContentLoaded', async () => {
       const statusClass = item.status === 'sent' ? 'sent' : (item.status === 'failed' ? 'failed' : 'pending');
       const statusLabel = item.status === 'sent' ? 'Sent' : (item.status === 'failed' ? 'Failed' : 'Pending');
 
-      tr.innerHTML = `
-        <td class="col-checkbox">
-          <input type="checkbox" class="row-checkbox" data-id="${item.id}" ${isChecked ? 'checked' : ''}>
-        </td>
-        <td class="col-details">
-          <div class="link-title-text" title="${escapeHtml(item.title)}">${escapeHtml(item.title || item.url)}</div>
-          <div class="link-sub-row">
-            <span class="link-domain-badge">${escapeHtml(domain)}</span>
-            <a href="${escapeHtml(item.url)}" target="_blank" class="link-url-anchor" title="${escapeHtml(item.url)}">${escapeHtml(item.url)}</a>
-          </div>
-        </td>
-        <td class="col-status">
-          <span class="status-badge ${statusClass}" title="${escapeHtml(item.errorMessage || '')}">
-            ${statusLabel}
-          </span>
-        </td>
-        <td class="col-actions">
-          <div class="row-actions">
-            <button class="action-btn send-btn" data-action="send" data-id="${item.id}" title="Send this link to Telegram bubble">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M21.6 3.4a1.8 1.8 0 0 0-1.9-.3L2.8 10.4c-.9.4-1 1.6-.2 2.1l4.8 2.5 1.9 5.8c.2.6.9 1 1.5.8.5-.1.8-.4 1-.8l2.6-3.2 4.9 3.6c.7.5 1.7.2 2-.6l3.5-15.6c.2-.8-.2-1.4-.7-1.6z"/>
-              </svg>
-            </button>
-            <button class="action-btn delete-btn" data-action="delete" data-id="${item.id}" title="Delete link">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </button>
-          </div>
-        </td>
-      `;
+      // Checkbox column
+      const tdCb = document.createElement('td');
+      tdCb.className = 'col-checkbox';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'row-checkbox';
+      cb.dataset.id = item.id;
+      cb.checked = isChecked;
+      tdCb.appendChild(cb);
+
+      // Details column
+      const tdDetails = document.createElement('td');
+      tdDetails.className = 'col-details';
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'link-title-text';
+      titleDiv.title = item.title || item.url;
+      titleDiv.textContent = item.title || item.url;
+
+      const subRow = document.createElement('div');
+      subRow.className = 'link-sub-row';
+      const domainBadge = document.createElement('span');
+      domainBadge.className = 'link-domain-badge';
+      domainBadge.textContent = domain;
+      const urlAnchor = document.createElement('a');
+      urlAnchor.href = item.url;
+      urlAnchor.target = '_blank';
+      urlAnchor.className = 'link-url-anchor';
+      urlAnchor.title = item.url;
+      urlAnchor.textContent = item.url;
+      subRow.appendChild(domainBadge);
+      subRow.appendChild(urlAnchor);
+
+      tdDetails.appendChild(titleDiv);
+      tdDetails.appendChild(subRow);
+
+      // Status column
+      const tdStatus = document.createElement('td');
+      tdStatus.className = 'col-status';
+      const statusSpan = document.createElement('span');
+      statusSpan.className = `status-badge ${statusClass}`;
+      if (item.errorMessage) statusSpan.title = item.errorMessage;
+      statusSpan.textContent = statusLabel;
+      tdStatus.appendChild(statusSpan);
+
+      // Actions column
+      const tdActions = document.createElement('td');
+      tdActions.className = 'col-actions';
+      const rowActions = document.createElement('div');
+      rowActions.className = 'row-actions';
+
+      const sendBtn = document.createElement('button');
+      sendBtn.className = 'action-btn send-btn';
+      sendBtn.dataset.action = 'send';
+      sendBtn.dataset.id = item.id;
+      sendBtn.title = 'Send this link to Telegram bubble';
+      sendBtn.textContent = '✈';
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'action-btn delete-btn';
+      deleteBtn.dataset.action = 'delete';
+      deleteBtn.dataset.id = item.id;
+      deleteBtn.title = 'Delete link';
+      deleteBtn.textContent = '🗑';
+
+      rowActions.appendChild(sendBtn);
+      rowActions.appendChild(deleteBtn);
+      tdActions.appendChild(rowActions);
+
+      tr.appendChild(tdCb);
+      tr.appendChild(tdDetails);
+      tr.appendChild(tdStatus);
+      tr.appendChild(tdActions);
 
       linksTableBody.appendChild(tr);
     });
@@ -558,9 +598,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const linkItem = allLinks.find(l => l.id === id);
     if (!linkItem) return;
 
-    const originalSvg = buttonEl.innerHTML;
+    const origText = buttonEl.textContent;
     buttonEl.disabled = true;
-    buttonEl.innerHTML = '<span class="spinner"></span>';
+    buttonEl.textContent = '⏳';
 
     try {
       const result = await TelegramService.sendSingleBubble(settings.botToken, settings.chatId, linkItem, settings);
@@ -576,7 +616,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       showBanner(`Failed to send: ${err.message}`, 'error');
     } finally {
-      buttonEl.innerHTML = originalSvg;
+      buttonEl.textContent = origText;
       buttonEl.disabled = false;
     }
   }

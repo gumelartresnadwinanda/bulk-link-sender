@@ -3,7 +3,9 @@
  * Handles Context Menus, Keyboard Shortcuts, Extension Badge, and Notifications.
  */
 
-importScripts('../scripts/storage.js', '../scripts/telegram.js');
+if (typeof importScripts === 'function') {
+  importScripts('../scripts/storage.js', '../scripts/telegram.js');
+}
 
 const CONTEXT_MENU_IDS = {
   PAGE: 'bls_add_page',
