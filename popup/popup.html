@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulk Link Sender</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-branding">
+        <img src="../icons/icon-48.png" alt="Logo" class="app-logo">
+        <div>
+          <h1 class="app-title">Bulk Link Sender</h1>
+          <p class="app-subtitle" id="unsentBadgeText">0 unsent links</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btnOpenManager" class="icon-btn" title="Open Full Manager in New Tab">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </button>
+        <button id="btnToggleManualAdd" class="icon-btn" title="Add Link Manually">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+        <button id="btnToggleSettings" class="icon-btn" title="Settings & Telegram Bot Setup">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Notification Alert Banner (Dynamic) -->
+    <div id="alertBanner" class="alert-banner hidden"></div>
+
+    <!-- Active Tab Grab Card -->
+    <section class="grab-tab-card">
+      <div class="grab-tab-info">
+        <span class="grab-tab-tag">ACTIVE TAB</span>
+        <h2 id="activeTabTitle" class="grab-tab-title">Loading active tab...</h2>
+        <p id="activeTabUrl" class="grab-tab-url"></p>
+      </div>
+      <button id="btnGrabCurrentTab" class="btn btn-primary btn-grab">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        <span id="grabBtnLabel">Grab Tab</span>
+      </button>
+    </section>
+
+    <!-- Manual Add Drawer (Hidden by default) -->
+    <section id="manualAddDrawer" class="manual-add-drawer hidden">
+      <div class="drawer-header">
+        <h3>Add Links Manually</h3>
+        <button id="btnCloseManualAdd" class="icon-btn-sm" title="Close">&times;</button>
+      </div>
+      <div class="input-group">
+        <input type="text" id="manualInputTitle" placeholder="Title (optional)" class="form-input">
+      </div>
+      <div class="input-group">
+        <textarea id="manualInputUrls" rows="2" placeholder="Paste URL(s) - one per line for bulk" class="form-input form-textarea"></textarea>
+      </div>
+      <div class="drawer-actions">
+        <button id="btnAddManualLink" class="btn btn-primary btn-sm">Save to List</button>
+      </div>
+    </section>
+
+    <!-- Settings Drawer (Hidden by default) -->
+    <section id="settingsDrawer" class="settings-drawer hidden">
+      <div class="drawer-header">
+        <h3>Telegram Bot Configuration</h3>
+        <button id="btnCloseSettings" class="icon-btn-sm" title="Close">&times;</button>
+      </div>
+
+      <div class="settings-form">
+        <div class="form-field">
+          <label for="settingBotToken">Bot Token</label>
+          <div class="input-with-action">
+            <input type="password" id="settingBotToken" placeholder="123456789:ABCdef..." class="form-input">
+            <button id="btnToggleTokenVisibility" class="btn-input-action" type="button" title="Show/Hide">👁️</button>
+          </div>
+          <small class="helper-text">Get from <a href="https://t.me/BotFather" target="_blank">@BotFather</a></small>
+        </div>
+
+        <div class="form-field">
+          <label for="settingChatId">Target Chat ID</label>
+          <input type="text" id="settingChatId" placeholder="e.g. 123456789 or @channelname" class="form-input">
+          <small class="helper-text">Get your ID from <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a></small>
+        </div>
+
+        <div class="form-field">
+          <label for="settingTopicId">Topic ID / Thread ID <span style="font-weight: normal; color: var(--text-muted);">(Optional)</span></label>
+          <input type="text" id="settingTopicId" placeholder="e.g. 12 (for Forum Supergroup topics)" class="form-input">
+          <small class="helper-text">Leave blank unless sending to a specific Telegram Forum Topic</small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label for="settingDelay">Delay Between Bubbles</label>
+            <div class="input-with-unit">
+              <input type="number" id="settingDelay" min="200" max="5000" step="100" value="500" class="form-input">
+              <span class="unit-text">ms</span>
+            </div>
+            <small class="helper-text">500ms prevents rate limits</small>
+          </div>
+
+          <div class="form-field">
+            <label for="settingFormat">Message Format</label>
+            <select id="settingFormat" class="form-select">
+              <option value="url_only">URL Only (Cleanest)</option>
+              <option value="title_and_url">Title + URL</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-field-checkbox">
+          <label class="checkbox-label">
+            <input type="checkbox" id="settingDisablePreview">
+            <span>Disable Web Link Previews</span>
+          </label>
+        </div>
+
+        <div class="settings-actions">
+          <button id="btnTestConnection" class="btn btn-secondary btn-sm">
+            <span id="testBtnSpinner" class="spinner hidden"></span>
+            Test Connection Ping
+          </button>
+          <button id="btnSaveSettings" class="btn btn-primary btn-sm">Save Settings</button>
+        </div>
+
+        <div id="testConnectionResult" class="test-result hidden"></div>
+      </div>
+    </section>
+
+    <!-- Toolbar & Action Bar -->
+    <div class="app-toolbar">
+      <div class="toolbar-top">
+        <button id="btnSendAllUnsent" class="btn btn-telegram btn-block">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M21.6 3.4a1.8 1.8 0 0 0-1.9-.3L2.8 10.4c-.9.4-1 1.6-.2 2.1l4.8 2.5 1.9 5.8c.2.6.9 1 1.5.8.5-.1.8-.4 1-.8l2.6-3.2 4.9 3.6c.7.5 1.7.2 2-.6l3.5-15.6c.2-.8-.2-1.4-.7-1.6zM9.4 14.5l-3.2-1.7 13.5-6.5-10.3 8.2zm2.2 4.5l-1.3-4 8.7-6.9-7.4 10.9z"/>
+          </svg>
+          <span id="sendAllBtnText">Send All Unsent to Telegram (0)</span>
+        </button>
+      </div>
+
+      <div class="toolbar-bottom">
+        <div class="filter-tabs">
+          <button class="filter-tab active" data-filter="all">All (<span id="countAll">0</span>)</button>
+          <button class="filter-tab" data-filter="pending">Unsent (<span id="countPending">0</span>)</button>
+          <button class="filter-tab" data-filter="sent">Sent (<span id="countSent">0</span>)</button>
+        </div>
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Search saved links..." class="search-input">
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk Selection Bar (Shows when items selected) -->
+    <div id="selectionBar" class="selection-bar hidden">
+      <div class="selection-info">
+        <span id="selectedCountText">0 selected</span>
+      </div>
+      <div class="selection-actions">
+        <button id="btnSendSelected" class="btn btn-sm btn-telegram">Send Selected</button>
+        <button id="btnDeleteSelected" class="btn btn-sm btn-danger">Delete</button>
+      </div>
+    </div>
+
+    <!-- Active Sending Progress Modal/Bar -->
+    <div id="progressOverlay" class="progress-overlay hidden">
+      <div class="progress-card">
+        <div class="progress-header">
+          <h4 id="progressTitle">Sending to Telegram...</h4>
+          <span id="progressStep" class="progress-step">1 / 5</span>
+        </div>
+        <div class="progress-track">
+          <div id="progressBarFill" class="progress-fill" style="width: 0%;"></div>
+        </div>
+        <p id="progressCurrentUrl" class="progress-current-url">Sending https://...</p>
+        <div class="progress-actions">
+          <button id="btnCancelSend" class="btn btn-secondary btn-sm">Stop Sending</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Links Table Area -->
+    <main class="table-container">
+      <table class="links-table">
+        <thead>
+          <tr>
+            <th class="col-checkbox">
+              <input type="checkbox" id="selectAllCheckbox" title="Select All">
+            </th>
+            <th class="col-details">Link & Title</th>
+            <th class="col-status">Status</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="linksTableBody">
+          <!-- Dynamically populated rows -->
+        </tbody>
+      </table>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="empty-state hidden">
+        <div class="empty-icon">🔗</div>
+        <h3>No saved links yet</h3>
+        <p>Click <strong>"Grab Tab"</strong> above or right-click any link on a webpage to add it to your queue.</p>
+      </div>
+
+      <!-- Filter Empty State -->
+      <div id="noMatchState" class="empty-state hidden">
+        <div class="empty-icon">🔍</div>
+        <h3>No matching links</h3>
+        <p>Try searching for a different keyword or switch filter tab.</p>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-stats">
+        <span id="totalCounter">0 total</span>
+      </div>
+      <div class="footer-actions">
+        <button id="btnClearSent" class="footer-btn">Clear Sent</button>
+        <span class="dot-separator">•</span>
+        <button id="btnClearAll" class="footer-btn text-danger">Clear All</button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../scripts/storage.js"></script>
+  <script src="../scripts/telegram.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

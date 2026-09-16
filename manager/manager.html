@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulk Link Sender - Dashboard & Manager</title>
+  <link rel="stylesheet" href="manager.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img src="../icons/icon-48.png" alt="Logo" class="brand-logo">
+        <div>
+          <h2 class="brand-title">Bulk Link Sender</h2>
+          <span class="brand-version">v1.0.0 • Telegram Queue</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-view="links-view">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
+          <span>Saved Links</span>
+          <span id="sidebarPendingBadge" class="badge-pill">0</span>
+        </button>
+
+        <button class="nav-item" data-view="import-view">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Bulk Import</span>
+        </button>
+
+        <button class="nav-item" data-view="settings-view">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          <span>Telegram Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="bot-status-card" id="sidebarBotStatus">
+          <span class="status-indicator"></span>
+          <span id="botStatusText">Telegram: Not Checked</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Top Alert Banner -->
+      <div id="managerAlert" class="alert-banner hidden"></div>
+
+      <!-- VIEW 1: LINKS TABLE VIEW -->
+      <div id="links-view" class="view-panel active">
+        <!-- Stat Cards -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Total Saved</span>
+            <span class="stat-value" id="statTotal">0</span>
+          </div>
+          <div class="stat-card pending">
+            <span class="stat-label">Pending / Unsent</span>
+            <span class="stat-value" id="statPending">0</span>
+          </div>
+          <div class="stat-card sent">
+            <span class="stat-label">Sent to Telegram</span>
+            <span class="stat-value" id="statSent">0</span>
+          </div>
+        </div>
+
+        <!-- Action Header -->
+        <div class="table-header-bar">
+          <div class="filter-group">
+            <div class="btn-group">
+              <button class="tab-btn active" data-filter="all">All</button>
+              <button class="tab-btn" data-filter="pending">Unsent</button>
+              <button class="tab-btn" data-filter="sent">Sent</button>
+            </div>
+            <div class="search-wrap">
+              <input type="text" id="managerSearch" placeholder="Search by title, URL, or domain..." class="search-input">
+            </div>
+          </div>
+
+          <div class="action-group">
+            <button id="btnManagerSendAll" class="btn btn-telegram">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21.6 3.4a1.8 1.8 0 0 0-1.9-.3L2.8 10.4c-.9.4-1 1.6-.2 2.1l4.8 2.5 1.9 5.8c.2.6.9 1 1.5.8.5-.1.8-.4 1-.8l2.6-3.2 4.9 3.6c.7.5 1.7.2 2-.6l3.5-15.6c.2-.8-.2-1.4-.7-1.6z"/>
+              </svg>
+              <span id="btnManagerSendAllText">Send All Unsent (0)</span>
+            </button>
+            <button id="btnExportMenu" class="btn btn-secondary" title="Export Links">Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Multi-selection actions bar -->
+        <div id="managerSelectionBar" class="selection-bar hidden">
+          <span id="managerSelectedText" class="selection-count">0 items selected</span>
+          <div class="selection-btn-group">
+            <button id="btnSendSelectedBatch" class="btn btn-telegram btn-sm">Send Selected Bubbles</button>
+            <button id="btnMarkSentBatch" class="btn btn-secondary btn-sm">Mark as Sent</button>
+            <button id="btnMarkUnsentBatch" class="btn btn-secondary btn-sm">Mark as Unsent</button>
+            <button id="btnDeleteSelectedBatch" class="btn btn-danger btn-sm">Delete Selected</button>
+          </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="data-table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="th-cb"><input type="checkbox" id="managerSelectAll"></th>
+                <th class="th-domain">Domain</th>
+                <th class="th-title">Title & Target URL</th>
+                <th class="th-status">Status</th>
+                <th class="th-date">Added Date</th>
+                <th class="th-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="managerTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+
+          <div id="managerEmptyState" class="empty-state-large hidden">
+            <h3>No links found</h3>
+            <p>Use the extension popup, context menu on any web page, or the <strong>Bulk Import</strong> tab to populate links.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: BULK IMPORT VIEW -->
+      <div id="import-view" class="view-panel">
+        <div class="panel-card">
+          <h2>Bulk Import URLs</h2>
+          <p class="panel-desc">Paste raw URLs (e.g. instagram.com/me, docs.google.com/...) one per line. Duplicates will be automatically detected and skipped.</p>
+
+          <div class="form-field">
+            <label for="importTextarea">Paste URLs (one per line)</label>
+            <textarea id="importTextarea" rows="12" placeholder="https://instagram.com/user1&#10;https://docs.google.com/document/d/123&#10;https://github.com/profile" class="form-textarea"></textarea>
+          </div>
+
+          <div class="panel-actions">
+            <button id="btnRunImport" class="btn btn-primary">Import into Queue</button>
+          </div>
+          <div id="importFeedback" class="import-feedback hidden"></div>
+        </div>
+      </div>
+
+      <!-- VIEW 3: SETTINGS VIEW -->
+      <div id="settings-view" class="view-panel">
+        <div class="panel-card">
+          <h2>Telegram Bot Configuration</h2>
+          <p class="panel-desc">Configure your Telegram credentials so the extension can deliver links directly into your personal chat, group, or channel as individual bubbles.</p>
+
+          <div class="settings-grid">
+            <div class="form-field">
+              <label for="mgrBotToken">Telegram Bot Token</label>
+              <input type="password" id="mgrBotToken" class="form-input" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+              <small class="helper-text">Create a bot on Telegram with <a href="https://t.me/BotFather" target="_blank">@BotFather</a> and copy the API token.</small>
+            </div>
+
+            <div class="form-field">
+              <label for="mgrChatId">Target Chat ID / Channel Username</label>
+              <input type="text" id="mgrChatId" class="form-input" placeholder="e.g. 123456789 or @channelname">
+              <small class="helper-text">To find your personal ID, start a chat with <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a>. For groups, use the group ID.</small>
+            </div>
+
+            <div class="form-field">
+              <label for="mgrTopicId">Topic ID / Thread ID <span style="font-weight: normal; color: var(--text-muted);">(Optional)</span></label>
+              <input type="text" id="mgrTopicId" class="form-input" placeholder="e.g. 12 (for Forum Supergroup topics)">
+              <small class="helper-text">Leave blank unless sending to a specific Telegram Forum Topic.</small>
+            </div>
+
+            <div class="form-field">
+              <label for="mgrDelay">Delay Between Bubbles (milliseconds)</label>
+              <input type="number" id="mgrDelay" class="form-input" min="200" max="5000" step="100" value="500">
+              <small class="helper-text">Recommended: 500ms. Prevents Telegram rate limiting when bulk sending dozens of links.</small>
+            </div>
+
+            <div class="form-field">
+              <label for="mgrFormat">Message Bubble Format</label>
+              <select id="mgrFormat" class="form-select">
+                <option value="url_only">URL Only (Cleanest, e.g. https://...)</option>
+                <option value="title_and_url">Title + URL on newline</option>
+              </select>
+            </div>
+
+            <div class="form-field-checkbox">
+              <label class="checkbox-label">
+                <input type="checkbox" id="mgrDisablePreview">
+                <span>Disable link preview boxes in Telegram</span>
+              </label>
+            </div>
+
+            <div class="form-field-checkbox">
+              <label class="checkbox-label">
+                <input type="checkbox" id="mgrSilent">
+                <span>Send quietly without sound (disable_notification)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="panel-actions">
+            <button id="btnMgrTestPing" class="btn btn-secondary">
+              <span id="mgrTestSpinner" class="spinner hidden"></span>
+              Test Connection Ping
+            </button>
+            <button id="btnMgrSaveSettings" class="btn btn-primary">Save Settings</button>
+          </div>
+
+          <div id="mgrTestResult" class="test-result hidden"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Modal Progress Overlay for Bulk Sending -->
+    <div id="mgrProgressOverlay" class="progress-overlay hidden">
+      <div class="progress-card">
+        <div class="progress-header">
+          <h4 id="mgrProgressTitle">Sending to Telegram...</h4>
+          <span id="mgrProgressStep" class="progress-step">0 / 0</span>
+        </div>
+        <div class="progress-track">
+          <div id="mgrProgressBarFill" class="progress-fill" style="width: 0%;"></div>
+        </div>
+        <p id="mgrProgressCurrentUrl" class="progress-current-url">Sending...</p>
+        <button id="btnMgrStopSend" class="btn btn-secondary btn-sm">Stop Sending</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../scripts/storage.js"></script>
+  <script src="../scripts/telegram.js"></script>
+  <script src="manager.js"></script>
+</body>
+</html>
