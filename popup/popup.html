@@ -31,7 +31,7 @@
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
         </button>
-        <button id="btnToggleSettings" class="icon-btn" title="Settings & Telegram Bot Setup">
+        <button id="btnToggleSettings" class="icon-btn" title="Settings &amp; Telegram Profiles">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -77,79 +77,106 @@
       </div>
     </section>
 
-    <!-- Settings Drawer (Hidden by default) -->
+    <!-- Settings / Profiles Drawer (Hidden by default) -->
     <section id="settingsDrawer" class="settings-drawer hidden">
       <div class="drawer-header">
-        <h3>Telegram Bot Configuration</h3>
+        <h3>Telegram Profiles</h3>
         <button id="btnCloseSettings" class="icon-btn-sm" title="Close">&times;</button>
       </div>
 
-      <div class="settings-form">
-        <div class="form-field">
-          <label for="settingBotToken">Bot Token</label>
-          <div class="input-with-action">
-            <input type="password" id="settingBotToken" placeholder="123456789:ABCdef..." class="form-input">
-            <button id="btnToggleTokenVisibility" class="btn-input-action" type="button" title="Show/Hide">👁️</button>
-          </div>
-          <small class="helper-text">Get from <a href="https://t.me/BotFather" target="_blank">@BotFather</a></small>
+      <!-- Profile List -->
+      <div id="profileListSection" class="profiles-section">
+        <div id="profileListContainer" class="profile-list">
+          <!-- Populated dynamically -->
+        </div>
+        <button id="btnAddProfile" class="btn btn-secondary btn-sm btn-block-sm">+ Add New Profile</button>
+      </div>
+
+      <!-- Profile Edit Form (shown when editing/adding) -->
+      <div id="profileEditForm" class="profile-edit-form hidden">
+        <div class="profile-edit-header">
+          <strong id="profileEditTitle">Edit Profile</strong>
+          <button id="btnCancelProfileEdit" class="icon-btn-sm" title="Cancel">&times;</button>
         </div>
 
-        <div class="form-field">
-          <label for="settingChatId">Target Chat ID</label>
-          <input type="text" id="settingChatId" placeholder="e.g. 123456789 or @channelname" class="form-input">
-          <small class="helper-text">Get your ID from <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a></small>
-        </div>
-
-        <div class="form-field">
-          <label for="settingTopicId">Topic ID / Thread ID <span style="font-weight: normal; color: var(--text-muted);">(Optional)</span></label>
-          <input type="text" id="settingTopicId" placeholder="e.g. 12 (for Forum Supergroup topics)" class="form-input">
-          <small class="helper-text">Leave blank unless sending to a specific Telegram Forum Topic</small>
-        </div>
-
-        <div class="form-row">
+        <div class="settings-form">
           <div class="form-field">
-            <label for="settingDelay">Delay Between Bubbles</label>
-            <div class="input-with-unit">
-              <input type="number" id="settingDelay" min="200" max="5000" step="100" value="500" class="form-input">
-              <span class="unit-text">ms</span>
+            <label for="editProfileName">Profile Name</label>
+            <input type="text" id="editProfileName" placeholder='e.g. "Personal", "Work Group"' class="form-input">
+          </div>
+
+          <div class="form-field">
+            <label for="editBotToken">Bot Token</label>
+            <div class="input-with-action">
+              <input type="password" id="editBotToken" placeholder="123456789:ABCdef..." class="form-input">
+              <button id="btnToggleEditTokenVisibility" class="btn-input-action" type="button" title="Show/Hide">👁️</button>
             </div>
-            <small class="helper-text">500ms prevents rate limits</small>
+            <small class="helper-text">Get from <a href="https://t.me/BotFather" target="_blank">@BotFather</a></small>
           </div>
 
           <div class="form-field">
-            <label for="settingFormat">Message Format</label>
-            <select id="settingFormat" class="form-select">
-              <option value="url_only">URL Only (Cleanest)</option>
-              <option value="title_and_url">Title + URL</option>
-            </select>
+            <label for="editChatId">Target Chat ID</label>
+            <input type="text" id="editChatId" placeholder="e.g. 123456789 or @channelname" class="form-input">
+            <small class="helper-text">Get your ID from <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a></small>
           </div>
-        </div>
 
-        <div class="form-field-checkbox">
-          <label class="checkbox-label">
-            <input type="checkbox" id="settingDisablePreview">
-            <span>Disable Web Link Previews</span>
-          </label>
-        </div>
+          <div class="form-field">
+            <label for="editTopicId">Topic ID / Thread ID <span style="font-weight: normal; color: var(--text-muted);">(Optional)</span></label>
+            <input type="text" id="editTopicId" placeholder="e.g. 12 (for Forum Supergroup topics)" class="form-input">
+            <small class="helper-text">Leave blank unless sending to a specific Telegram Forum Topic</small>
+          </div>
 
-        <div class="settings-actions">
-          <button id="btnTestConnection" class="btn btn-secondary btn-sm">
-            <span id="testBtnSpinner" class="spinner hidden"></span>
-            Test Connection Ping
-          </button>
-          <button id="btnSaveSettings" class="btn btn-primary btn-sm">Save Settings</button>
-        </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="editDelay">Delay Between Bubbles</label>
+              <div class="input-with-unit">
+                <input type="number" id="editDelay" min="200" max="5000" step="100" value="500" class="form-input">
+                <span class="unit-text">ms</span>
+              </div>
+            </div>
 
-        <div id="testConnectionResult" class="test-result hidden"></div>
+            <div class="form-field">
+              <label for="editFormat">Message Format</label>
+              <select id="editFormat" class="form-select">
+                <option value="url_only">URL Only (Cleanest)</option>
+                <option value="title_and_url">Title + URL</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-field-checkbox">
+            <label class="checkbox-label">
+              <input type="checkbox" id="editDisablePreview">
+              <span>Disable Web Link Previews</span>
+            </label>
+          </div>
+
+          <div class="settings-actions">
+            <button id="btnTestProfileConnection" class="btn btn-secondary btn-sm">
+              <span id="testProfileSpinner" class="spinner hidden"></span>
+              Test Connection
+            </button>
+            <button id="btnSaveProfileEdit" class="btn btn-primary btn-sm">Save Profile</button>
+          </div>
+
+          <div id="profileTestResult" class="test-result hidden"></div>
+        </div>
       </div>
     </section>
 
     <!-- Toolbar & Action Bar -->
     <div class="app-toolbar">
       <div class="toolbar-top">
+        <!-- Profile Selector Row -->
+        <div class="profile-selector-row">
+          <label class="profile-selector-label" for="activeProfileSelect">Send via:</label>
+          <select id="activeProfileSelect" class="profile-select-dropdown">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
         <button id="btnSendAllUnsent" class="btn btn-telegram btn-block">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M21.6 3.4a1.8 1.8 0 0 0-1.9-.3L2.8 10.4c-.9.4-1 1.6-.2 2.1l4.8 2.5 1.9 5.8c.2.6.9 1 1.5.8.5-.1.8-.4 1-.8l2.6-3.2 4.9 3.6c.7.5 1.7.2 2-.6l3.5-15.6c.2-.8-.2-1.4-.7-1.6zM9.4 14.5l-3.2-1.7 13.5-6.5-10.3 8.2zm2.2 4.5l-1.3-4 8.7-6.9-7.4 10.9z"/>
+            <path d="M21.6 3.4a1.8 1.8 0 0 0-1.9-.3L2.8 10.4c-.9.4-1 1.6-.2 2.1l4.8 2.5 1.9 5.8c.2.6.9 1 1.5.8.5-.1.8-.4 1-.8l2.6-3.2 4.9 3.6c.7.5 1.7.2 2-.6l3.5-15.6c.2-.8-.2-1.4-.7-1.6z"/>
           </svg>
           <span id="sendAllBtnText">Send All Unsent to Telegram (0)</span>
         </button>
@@ -203,7 +230,7 @@
             <th class="col-checkbox">
               <input type="checkbox" id="selectAllCheckbox" title="Select All">
             </th>
-            <th class="col-details">Link & Title</th>
+            <th class="col-details">Link &amp; Title</th>
             <th class="col-status">Status</th>
             <th class="col-actions">Actions</th>
           </tr>

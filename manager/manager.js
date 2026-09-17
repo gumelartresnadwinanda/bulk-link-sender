@@ -1,5 +1,6 @@
 /**
  * Bulk Link Sender - Dashboard & Manager Controller
+ * Includes multi-profile Telegram destination management.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -9,6 +10,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   let selectedIds = new Set();
   let isSendingActive = false;
   let abortSend = false;
+
+  // Profile editing state
+  let mgrEditingProfileId = null; // null = new, string = existing
 
   // DOM Elements
   const navItems = document.querySelectorAll('.nav-item');
@@ -33,6 +37,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnManagerSendAllText = document.getElementById('btnManagerSendAllText');
   const btnExportMenu = document.getElementById('btnExportMenu');
 
+  // Profile selector (in links action bar)
+  const mgrActiveProfileSelect = document.getElementById('mgrActiveProfileSelect');
+
   // Multi-selection bar
   const managerSelectionBar = document.getElementById('managerSelectionBar');
   const managerSelectedText = document.getElementById('managerSelectedText');
@@ -46,18 +53,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnRunImport = document.getElementById('btnRunImport');
   const importFeedback = document.getElementById('importFeedback');
 
-  // Settings View
-  const mgrBotToken = document.getElementById('mgrBotToken');
-  const mgrChatId = document.getElementById('mgrChatId');
-  const mgrTopicId = document.getElementById('mgrTopicId');
-  const mgrDelay = document.getElementById('mgrDelay');
-  const mgrFormat = document.getElementById('mgrFormat');
-  const mgrDisablePreview = document.getElementById('mgrDisablePreview');
-  const mgrSilent = document.getElementById('mgrSilent');
-  const btnMgrTestPing = document.getElementById('btnMgrTestPing');
-  const btnMgrSaveSettings = document.getElementById('btnMgrSaveSettings');
-  const mgrTestSpinner = document.getElementById('mgrTestSpinner');
-  const mgrTestResult = document.getElementById('mgrTestResult');
+  // Profiles View
+  const btnMgrAddProfile = document.getElementById('btnMgrAddProfile');
+  const mgrProfileList = document.getElementById('mgrProfileList');
+  const mgrProfileEditCard = document.getElementById('mgrProfileEditCard');
+  const mgrProfileEditTitle = document.getElementById('mgrProfileEditTitle');
+  const btnMgrCancelProfileEdit = document.getElementById('btnMgrCancelProfileEdit');
+  const mgrEditProfileName = document.getElementById('mgrEditProfileName');
+  const mgrEditBotToken = document.getElementById('mgrEditBotToken');
+  const mgrEditChatId = document.getElementById('mgrEditChatId');
+  const mgrEditTopicId = document.getElementById('mgrEditTopicId');
+  const mgrEditDelay = document.getElementById('mgrEditDelay');
+  const mgrEditFormat = document.getElementById('mgrEditFormat');
+  const mgrEditDisablePreview = document.getElementById('mgrEditDisablePreview');
+  const mgrEditSilent = document.getElementById('mgrEditSilent');
+  const btnMgrTestProfilePing = document.getElementById('btnMgrTestProfilePing');
+  const mgrProfileTestSpinner = document.getElementById('mgrProfileTestSpinner');
+  const mgrProfileTestResult = document.getElementById('mgrProfileTestResult');
+  const btnMgrSaveProfile = document.getElementById('btnMgrSaveProfile');
 
   // Progress Overlay
   const mgrProgressOverlay = document.getElementById('mgrProgressOverlay');
@@ -67,7 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const mgrProgressCurrentUrl = document.getElementById('mgrProgressCurrentUrl');
   const btnMgrStopSend = document.getElementById('btnMgrStopSend');
 
-  // Banner Helper
+  // ─── Banner Helper ───────────────────────────────────────────────────────────
   let alertTimer = null;
   function showAlert(msg, type = 'info', duration = 4000) {
     if (alertTimer) clearTimeout(alertTimer);
@@ -82,23 +95,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
   function formatDate(ts) {
     if (!ts) return '-';
     const d = new Date(ts);
     return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
-  // --- View Switching ---
+  // ─── View Switching ──────────────────────────────────────────────────────────
   navItems.forEach(btn => {
     btn.addEventListener('click', () => {
       const viewId = btn.dataset.view;
@@ -108,26 +111,289 @@ document.addEventListener('DOMContentLoaded', async () => {
       btn.classList.add('active');
       const targetPanel = document.getElementById(viewId);
       if (targetPanel) targetPanel.classList.add('active');
+
+      // When switching to profiles view, refresh it
+      if (viewId === 'profiles-view') {
+        loadProfiles();
+      }
     });
   });
 
-  // --- Initial Load ---
+  // ─── Initial Load ────────────────────────────────────────────────────────────
   async function init() {
-    await loadSettings();
+    await loadProfiles();
     await loadLinks();
     await checkBotHealth();
   }
 
   async function checkBotHealth() {
-    const settings = await LinkStorage.getSettings();
-    if (settings.botToken && settings.chatId) {
+    const profile = await LinkStorage.getActiveProfile();
+    if (profile && profile.botToken && profile.chatId) {
       sidebarBotStatus.className = 'bot-status-card connected';
-      botStatusText.textContent = 'Telegram Configured';
+      botStatusText.textContent = `Profile: ${profile.name}`;
     } else {
       sidebarBotStatus.className = 'bot-status-card';
-      botStatusText.textContent = 'Telegram Not Configured';
+      botStatusText.textContent = 'No profile configured';
     }
   }
+
+  // ─── Profile Management ──────────────────────────────────────────────────────
+
+  async function loadProfiles() {
+    const [profiles, activeId] = await Promise.all([
+      LinkStorage.getProfiles(),
+      LinkStorage.getActiveProfileId()
+    ]);
+
+    // Update profile selector dropdown (in links action bar)
+    mgrActiveProfileSelect.textContent = '';
+    profiles.forEach(profile => {
+      const opt = document.createElement('option');
+      opt.value = profile.id;
+      opt.textContent = profile.name + (profile.chatId ? ` (${profile.chatId})` : '');
+      if (profile.id === activeId) opt.selected = true;
+      mgrActiveProfileSelect.appendChild(opt);
+    });
+
+    // Update profile cards list
+    renderProfileCards(profiles, activeId);
+  }
+
+  function renderProfileCards(profiles, activeId) {
+    mgrProfileList.textContent = '';
+
+    if (profiles.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'panel-desc';
+      empty.textContent = 'No profiles yet. Add one to start sending links.';
+      mgrProfileList.appendChild(empty);
+      return;
+    }
+
+    profiles.forEach(profile => {
+      const card = document.createElement('div');
+      card.className = 'mgr-profile-card' + (profile.id === activeId ? ' active' : '');
+      card.dataset.id = profile.id;
+
+      const cardInfo = document.createElement('div');
+      cardInfo.className = 'mgr-profile-card-info';
+
+      const nameBadgeRow = document.createElement('div');
+      nameBadgeRow.className = 'mgr-profile-name-row';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'mgr-profile-card-name';
+      nameEl.textContent = profile.name;
+
+      if (profile.id === activeId) {
+        const activeBadge = document.createElement('span');
+        activeBadge.className = 'mgr-active-badge';
+        activeBadge.textContent = 'Active';
+        nameBadgeRow.appendChild(nameEl);
+        nameBadgeRow.appendChild(activeBadge);
+      } else {
+        nameBadgeRow.appendChild(nameEl);
+      }
+
+      const detailEl = document.createElement('div');
+      detailEl.className = 'mgr-profile-card-detail';
+
+      if (profile.botToken && profile.chatId) {
+        detailEl.textContent = `Chat: ${profile.chatId}${profile.topicId ? ' · Topic ' + profile.topicId : ''}`;
+      } else {
+        detailEl.textContent = 'Not configured — click Edit to add credentials';
+      }
+
+      cardInfo.appendChild(nameBadgeRow);
+      cardInfo.appendChild(detailEl);
+
+      const cardActions = document.createElement('div');
+      cardActions.className = 'mgr-profile-card-actions';
+
+      if (profile.id !== activeId) {
+        const setActiveBtn = document.createElement('button');
+        setActiveBtn.className = 'btn btn-secondary btn-sm';
+        setActiveBtn.dataset.action = 'setactive';
+        setActiveBtn.dataset.id = profile.id;
+        setActiveBtn.textContent = 'Set Active';
+        cardActions.appendChild(setActiveBtn);
+      }
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'btn btn-secondary btn-sm';
+      editBtn.dataset.action = 'edit';
+      editBtn.dataset.id = profile.id;
+      editBtn.textContent = 'Edit';
+      cardActions.appendChild(editBtn);
+
+      if (profiles.length > 1) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'btn btn-danger btn-sm';
+        deleteBtn.dataset.action = 'delete';
+        deleteBtn.dataset.id = profile.id;
+        deleteBtn.textContent = 'Delete';
+        cardActions.appendChild(deleteBtn);
+      }
+
+      card.appendChild(cardInfo);
+      card.appendChild(cardActions);
+      mgrProfileList.appendChild(card);
+    });
+  }
+
+  // Profile card action delegation
+  mgrProfileList.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+
+    if (action === 'edit') {
+      await openMgrProfileEditForm(id);
+    } else if (action === 'delete') {
+      const profiles = await LinkStorage.getProfiles();
+      const profile = profiles.find(p => p.id === id);
+      if (!profile) return;
+      if (!confirm(`Delete profile "${profile.name}"? This cannot be undone.`)) return;
+      try {
+        await LinkStorage.deleteProfile(id);
+        await loadProfiles();
+        await checkBotHealth();
+        showAlert(`Profile "${profile.name}" deleted.`, 'info');
+      } catch (err) {
+        showAlert(err.message, 'error');
+      }
+    } else if (action === 'setactive') {
+      await LinkStorage.setActiveProfileId(id);
+      await loadProfiles();
+      await checkBotHealth();
+    }
+  });
+
+  // Active profile dropdown change (links view)
+  mgrActiveProfileSelect.addEventListener('change', async () => {
+    const selectedId = mgrActiveProfileSelect.value;
+    await LinkStorage.setActiveProfileId(selectedId);
+    await loadProfiles();
+    await checkBotHealth();
+  });
+
+  // Add New Profile button
+  btnMgrAddProfile.addEventListener('click', () => {
+    openMgrNewProfileForm();
+  });
+
+  function openMgrNewProfileForm() {
+    mgrEditingProfileId = null;
+    mgrProfileEditTitle.textContent = 'New Profile';
+    mgrEditProfileName.value = '';
+    mgrEditBotToken.value = '';
+    mgrEditChatId.value = '';
+    mgrEditTopicId.value = '';
+    mgrEditDelay.value = 500;
+    mgrEditFormat.value = 'url_only';
+    mgrEditDisablePreview.checked = false;
+    mgrEditSilent.checked = false;
+    mgrProfileTestResult.className = 'test-result hidden';
+    mgrProfileTestResult.textContent = '';
+
+    mgrProfileEditCard.classList.remove('hidden');
+    mgrProfileEditCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function openMgrProfileEditForm(id) {
+    const profiles = await LinkStorage.getProfiles();
+    const profile = profiles.find(p => p.id === id);
+    if (!profile) return;
+
+    mgrEditingProfileId = id;
+    mgrProfileEditTitle.textContent = `Edit: ${profile.name}`;
+    mgrEditProfileName.value = profile.name || '';
+    mgrEditBotToken.value = profile.botToken || '';
+    mgrEditChatId.value = profile.chatId || '';
+    mgrEditTopicId.value = profile.topicId || '';
+    mgrEditDelay.value = profile.delayMs || 500;
+    mgrEditFormat.value = profile.messageFormat || 'url_only';
+    mgrEditDisablePreview.checked = Boolean(profile.disablePreview);
+    mgrEditSilent.checked = Boolean(profile.silentNotification);
+    mgrProfileTestResult.className = 'test-result hidden';
+    mgrProfileTestResult.textContent = '';
+
+    mgrProfileEditCard.classList.remove('hidden');
+    mgrProfileEditCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  btnMgrCancelProfileEdit.addEventListener('click', () => {
+    mgrProfileEditCard.classList.add('hidden');
+  });
+
+  btnMgrTestProfilePing.addEventListener('click', async () => {
+    const token = mgrEditBotToken.value.trim();
+    const chatId = mgrEditChatId.value.trim();
+    const topicId = mgrEditTopicId.value.trim();
+
+    mgrProfileTestResult.classList.remove('hidden', 'success', 'error');
+    mgrProfileTestResult.className = 'test-result';
+    mgrProfileTestResult.textContent = 'Testing connection with Telegram...';
+    mgrProfileTestSpinner.classList.remove('hidden');
+    btnMgrTestProfilePing.disabled = true;
+
+    try {
+      const result = await TelegramService.testConnection(token, chatId, topicId);
+      if (result.success) {
+        mgrProfileTestResult.className = 'test-result success';
+        mgrProfileTestResult.textContent = `✓ Connection verified! Bot @${result.botUsername} sent ping to chat ${chatId}${topicId ? ' (Topic ' + topicId + ')' : ''}.`;
+      } else {
+        mgrProfileTestResult.className = 'test-result error';
+        mgrProfileTestResult.textContent = `✕ Connection test failed: ${result.error}`;
+      }
+    } catch (err) {
+      mgrProfileTestResult.className = 'test-result error';
+      mgrProfileTestResult.textContent = `✕ Error: ${err.message || err}`;
+    } finally {
+      mgrProfileTestSpinner.classList.add('hidden');
+      btnMgrTestProfilePing.disabled = false;
+    }
+  });
+
+  btnMgrSaveProfile.addEventListener('click', async () => {
+    const name = mgrEditProfileName.value.trim();
+    if (!name) {
+      showAlert('Profile name is required.', 'error');
+      return;
+    }
+
+    const data = {
+      name,
+      botToken: mgrEditBotToken.value.trim(),
+      chatId: mgrEditChatId.value.trim(),
+      topicId: mgrEditTopicId.value.trim(),
+      delayMs: parseInt(mgrEditDelay.value, 10) || 500,
+      messageFormat: mgrEditFormat.value,
+      disablePreview: mgrEditDisablePreview.checked,
+      silentNotification: mgrEditSilent.checked
+    };
+
+    try {
+      if (mgrEditingProfileId) {
+        await LinkStorage.updateProfile(mgrEditingProfileId, data);
+        showAlert(`Profile "${name}" updated successfully!`, 'success');
+      } else {
+        const newProfile = await LinkStorage.addProfile(data);
+        await LinkStorage.setActiveProfileId(newProfile.id);
+        showAlert(`Profile "${name}" created and set as active!`, 'success');
+      }
+
+      mgrProfileEditCard.classList.add('hidden');
+      await loadProfiles();
+      await checkBotHealth();
+    } catch (err) {
+      showAlert(`Failed to save: ${err.message}`, 'error');
+    }
+  });
+
+  // ─── Links ───────────────────────────────────────────────────────────────────
 
   async function loadLinks() {
     allLinks = await LinkStorage.getLinks();
@@ -341,7 +607,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderTable();
   });
 
-  // Actions on single link
+  // ─── Sending ─────────────────────────────────────────────────────────────────
+
+  async function getActiveProfile() {
+    const profile = await LinkStorage.getActiveProfile();
+    if (!profile || !profile.botToken || !profile.chatId) {
+      showAlert('Please configure a Telegram profile with Bot Token and Chat ID first. Go to Telegram Profiles.', 'error', 6000);
+      return null;
+    }
+    return profile;
+  }
+
   async function deleteSingleLink(id) {
     selectedIds.delete(id);
     await LinkStorage.deleteLink(id);
@@ -349,11 +625,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function sendSingleLink(id, buttonEl) {
-    const settings = await LinkStorage.getSettings();
-    if (!settings.botToken || !settings.chatId) {
-      showAlert('Please configure Bot Token and Chat ID in Settings first.', 'error');
-      return;
-    }
+    const profile = await getActiveProfile();
+    if (!profile) return;
 
     const item = allLinks.find(l => l.id === id);
     if (!item) return;
@@ -363,7 +636,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     buttonEl.textContent = '⏳';
 
     try {
-      const result = await TelegramService.sendSingleBubble(settings.botToken, settings.chatId, item, settings);
+      const result = await TelegramService.sendSingleBubble(profile.botToken, profile.chatId, item, profile);
       if (result.success) {
         await LinkStorage.markStatus(id, 'sent');
         showAlert(`Sent bubble: ${item.domain || item.url}`, 'success');
@@ -413,11 +686,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Bulk Sending Engine
   async function runBulkSend(items, title) {
-    const settings = await LinkStorage.getSettings();
-    if (!settings.botToken || !settings.chatId) {
-      showAlert('Please configure Telegram Bot Token and Chat ID in Settings first.', 'error');
-      return;
-    }
+    const profile = await getActiveProfile();
+    if (!profile) return;
 
     if (items.length === 0) {
       showAlert('No links to send.', 'info');
@@ -450,7 +720,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       mgrProgressBarFill.style.width = `${pct}%`;
       mgrProgressCurrentUrl.textContent = `Sending ${item.domain || item.url}...`;
 
-      const result = await TelegramService.sendSingleBubble(settings.botToken, settings.chatId, item, settings);
+      const result = await TelegramService.sendSingleBubble(profile.botToken, profile.chatId, item, profile);
       if (result.success) {
         await LinkStorage.markStatus(item.id, 'sent');
         successCount++;
@@ -462,7 +732,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await loadLinks();
 
       if (step < total && !abortSend) {
-        const delay = settings.delayMs || 500;
+        const delay = profile.delayMs || 500;
         await TelegramService.sleep(delay);
       }
     }
@@ -497,7 +767,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     mgrProgressCurrentUrl.textContent = 'Stopping queue...';
   });
 
-  // Export to CSV
+  // ─── Export to CSV ───────────────────────────────────────────────────────────
   btnExportMenu.addEventListener('click', () => {
     if (allLinks.length === 0) {
       showAlert('No links to export.', 'info');
@@ -527,7 +797,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     showAlert('Links exported to CSV file!', 'success');
   });
 
-  // Bulk Import
+  // ─── Bulk Import ─────────────────────────────────────────────────────────────
   btnRunImport.addEventListener('click', async () => {
     const text = importTextarea.value.trim();
     if (!text) {
@@ -546,63 +816,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       showAlert(`Import error: ${err.message}`, 'error');
     } finally {
       btnRunImport.disabled = false;
-    }
-  });
-
-  // Settings
-  async function loadSettings() {
-    const s = await LinkStorage.getSettings();
-    mgrBotToken.value = s.botToken || '';
-    mgrChatId.value = s.chatId || '';
-    mgrTopicId.value = s.topicId || '';
-    mgrDelay.value = s.delayMs || 500;
-    mgrFormat.value = s.messageFormat || 'url_only';
-    mgrDisablePreview.checked = Boolean(s.disablePreview);
-    mgrSilent.checked = Boolean(s.silentNotification);
-  }
-
-  btnMgrSaveSettings.addEventListener('click', async () => {
-    const updated = {
-      botToken: mgrBotToken.value.trim(),
-      chatId: mgrChatId.value.trim(),
-      topicId: mgrTopicId.value.trim(),
-      delayMs: parseInt(mgrDelay.value, 10) || 500,
-      messageFormat: mgrFormat.value,
-      disablePreview: mgrDisablePreview.checked,
-      silentNotification: mgrSilent.checked
-    };
-
-    await LinkStorage.saveSettings(updated);
-    showAlert('Telegram settings saved successfully!', 'success');
-    await checkBotHealth();
-  });
-
-  btnMgrTestPing.addEventListener('click', async () => {
-    const token = mgrBotToken.value.trim();
-    const chatId = mgrChatId.value.trim();
-    const topicId = mgrTopicId.value.trim();
-
-    mgrTestResult.classList.remove('hidden', 'success', 'error');
-    mgrTestResult.textContent = 'Testing connection with Telegram...';
-    mgrTestSpinner.classList.remove('hidden');
-    btnMgrTestPing.disabled = true;
-
-    try {
-      const result = await TelegramService.testConnection(token, chatId, topicId);
-      if (result.success) {
-        mgrTestResult.className = 'test-result success';
-        mgrTestResult.textContent = `✓ Connection verified! Bot @${result.botUsername} sent a test message to chat ${chatId}${topicId ? ' (Topic ' + topicId + ')' : ''}.`;
-        await checkBotHealth();
-      } else {
-        mgrTestResult.className = 'test-result error';
-        mgrTestResult.textContent = `✕ Connection test failed: ${result.error}`;
-      }
-    } catch (err) {
-      mgrTestResult.className = 'test-result error';
-      mgrTestResult.textContent = `✕ Error: ${err.message || err}`;
-    } finally {
-      mgrTestSpinner.classList.add('hidden');
-      btnMgrTestPing.disabled = false;
     }
   });
 

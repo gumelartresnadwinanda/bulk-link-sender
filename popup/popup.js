@@ -1,6 +1,7 @@
 /**
  * Bulk Link Sender - Popup Controller
- * Handles active tab capture, link table rendering, per-bubble Telegram sending, and settings.
+ * Handles active tab capture, link table rendering, per-bubble Telegram sending,
+ * and multi-profile Telegram destination management.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -13,6 +14,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   let isSendingActive = false;
   let abortSendController = false;
 
+  // Profile editing state
+  let editingProfileId = null; // null = adding new, string = editing existing
+
   // DOM Elements
   const unsentBadgeText = document.getElementById('unsentBadgeText');
   const activeTabTitle = document.getElementById('activeTabTitle');
@@ -21,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const grabBtnLabel = document.getElementById('grabBtnLabel');
   const alertBanner = document.getElementById('alertBanner');
 
-  // Drawers & Modals
+  // Drawers
   const btnToggleSettings = document.getElementById('btnToggleSettings');
   const btnCloseSettings = document.getElementById('btnCloseSettings');
   const settingsDrawer = document.getElementById('settingsDrawer');
@@ -35,18 +39,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   const manualInputUrls = document.getElementById('manualInputUrls');
   const btnAddManualLink = document.getElementById('btnAddManualLink');
 
-  // Settings Form
-  const settingBotToken = document.getElementById('settingBotToken');
-  const btnToggleTokenVisibility = document.getElementById('btnToggleTokenVisibility');
-  const settingChatId = document.getElementById('settingChatId');
-  const settingTopicId = document.getElementById('settingTopicId');
-  const settingDelay = document.getElementById('settingDelay');
-  const settingFormat = document.getElementById('settingFormat');
-  const settingDisablePreview = document.getElementById('settingDisablePreview');
-  const btnTestConnection = document.getElementById('btnTestConnection');
-  const btnSaveSettings = document.getElementById('btnSaveSettings');
-  const testConnectionResult = document.getElementById('testConnectionResult');
-  const testBtnSpinner = document.getElementById('testBtnSpinner');
+  // Profile List Section
+  const profileListSection = document.getElementById('profileListSection');
+  const profileListContainer = document.getElementById('profileListContainer');
+  const btnAddProfile = document.getElementById('btnAddProfile');
+
+  // Profile Edit Form
+  const profileEditForm = document.getElementById('profileEditForm');
+  const profileEditTitle = document.getElementById('profileEditTitle');
+  const btnCancelProfileEdit = document.getElementById('btnCancelProfileEdit');
+  const editProfileName = document.getElementById('editProfileName');
+  const editBotToken = document.getElementById('editBotToken');
+  const btnToggleEditTokenVisibility = document.getElementById('btnToggleEditTokenVisibility');
+  const editChatId = document.getElementById('editChatId');
+  const editTopicId = document.getElementById('editTopicId');
+  const editDelay = document.getElementById('editDelay');
+  const editFormat = document.getElementById('editFormat');
+  const editDisablePreview = document.getElementById('editDisablePreview');
+  const btnTestProfileConnection = document.getElementById('btnTestProfileConnection');
+  const testProfileSpinner = document.getElementById('testProfileSpinner');
+  const profileTestResult = document.getElementById('profileTestResult');
+  const btnSaveProfileEdit = document.getElementById('btnSaveProfileEdit');
+
+  // Profile Selector Dropdown (in toolbar)
+  const activeProfileSelect = document.getElementById('activeProfileSelect');
 
   // Toolbar & Filters
   const btnSendAllUnsent = document.getElementById('btnSendAllUnsent');
@@ -102,24 +118,250 @@ document.addEventListener('DOMContentLoaded', async () => {
     alertBanner.classList.add('hidden');
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
   // --- Initial Data Load ---
   async function init() {
-    await loadSettings();
+    await loadProfiles();
     await fetchActiveTab();
     await loadLinks();
   }
 
-  // --- Active Tab Grabber ---
+  // ─── Profile Management ─────────────────────────────────────────────────────
+
+  async function loadProfiles() {
+    const [profiles, activeId] = await Promise.all([
+      LinkStorage.getProfiles(),
+      LinkStorage.getActiveProfileId()
+    ]);
+
+    // Render the profile selector dropdown
+    activeProfileSelect.textContent = '';
+    profiles.forEach(profile => {
+      const opt = document.createElement('option');
+      opt.value = profile.id;
+      opt.textContent = profile.name + (profile.chatId ? ` (${profile.chatId})` : '');
+      if (profile.id === activeId) opt.selected = true;
+      activeProfileSelect.appendChild(opt);
+    });
+
+    // Render profile list in the settings drawer
+    renderProfileList(profiles, activeId);
+  }
+
+  function renderProfileList(profiles, activeId) {
+    profileListContainer.textContent = '';
+
+    profiles.forEach(profile => {
+      const item = document.createElement('div');
+      item.className = 'profile-list-item' + (profile.id === activeId ? ' active' : '');
+      item.dataset.id = profile.id;
+
+      const info = document.createElement('div');
+      info.className = 'profile-item-info';
+
+      const nameLine = document.createElement('div');
+      nameLine.className = 'profile-item-name';
+      nameLine.textContent = profile.name;
+
+      const detailLine = document.createElement('div');
+      detailLine.className = 'profile-item-detail';
+      if (profile.chatId) {
+        detailLine.textContent = profile.chatId + (profile.topicId ? ` · Topic ${profile.topicId}` : '');
+      } else {
+        detailLine.textContent = 'Not configured';
+      }
+
+      info.appendChild(nameLine);
+      info.appendChild(detailLine);
+
+      const actions = document.createElement('div');
+      actions.className = 'profile-item-actions';
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'profile-action-btn';
+      editBtn.title = 'Edit profile';
+      editBtn.dataset.action = 'edit';
+      editBtn.dataset.id = profile.id;
+      editBtn.textContent = '✏️';
+
+      actions.appendChild(editBtn);
+
+      if (profiles.length > 1) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'profile-action-btn profile-delete-btn';
+        deleteBtn.title = 'Delete profile';
+        deleteBtn.dataset.action = 'delete';
+        deleteBtn.dataset.id = profile.id;
+        deleteBtn.textContent = '🗑';
+        actions.appendChild(deleteBtn);
+      }
+
+      item.appendChild(info);
+      item.appendChild(actions);
+      profileListContainer.appendChild(item);
+    });
+  }
+
+  // Profile list click events (edit / delete)
+  profileListContainer.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+
+    if (action === 'edit') {
+      await openProfileEditForm(id);
+    } else if (action === 'delete') {
+      const profiles = await LinkStorage.getProfiles();
+      const profile = profiles.find(p => p.id === id);
+      if (!profile) return;
+      if (!confirm(`Delete profile "${profile.name}"?`)) return;
+      try {
+        await LinkStorage.deleteProfile(id);
+        await loadProfiles();
+        showBanner(`Profile "${profile.name}" deleted.`, 'info');
+      } catch (err) {
+        showBanner(err.message, 'error');
+      }
+    }
+  });
+
+  // Active profile dropdown change
+  activeProfileSelect.addEventListener('change', async () => {
+    const selectedId = activeProfileSelect.value;
+    await LinkStorage.setActiveProfileId(selectedId);
+    await loadProfiles();
+  });
+
+  // Add New Profile button
+  btnAddProfile.addEventListener('click', () => {
+    openNewProfileForm();
+  });
+
+  function openNewProfileForm() {
+    editingProfileId = null;
+    profileEditTitle.textContent = 'New Profile';
+    editProfileName.value = '';
+    editBotToken.value = '';
+    editBotToken.type = 'password';
+    btnToggleEditTokenVisibility.textContent = '👁️';
+    editChatId.value = '';
+    editTopicId.value = '';
+    editDelay.value = 500;
+    editFormat.value = 'url_only';
+    editDisablePreview.checked = false;
+    profileTestResult.className = 'test-result hidden';
+    profileTestResult.textContent = '';
+
+    profileListSection.classList.add('hidden');
+    profileEditForm.classList.remove('hidden');
+  }
+
+  async function openProfileEditForm(id) {
+    const profiles = await LinkStorage.getProfiles();
+    const profile = profiles.find(p => p.id === id);
+    if (!profile) return;
+
+    editingProfileId = id;
+    profileEditTitle.textContent = 'Edit Profile';
+    editProfileName.value = profile.name || '';
+    editBotToken.value = profile.botToken || '';
+    editBotToken.type = 'password';
+    btnToggleEditTokenVisibility.textContent = '👁️';
+    editChatId.value = profile.chatId || '';
+    editTopicId.value = profile.topicId || '';
+    editDelay.value = profile.delayMs || 500;
+    editFormat.value = profile.messageFormat || 'url_only';
+    editDisablePreview.checked = Boolean(profile.disablePreview);
+    profileTestResult.className = 'test-result hidden';
+    profileTestResult.textContent = '';
+
+    profileListSection.classList.add('hidden');
+    profileEditForm.classList.remove('hidden');
+  }
+
+  btnCancelProfileEdit.addEventListener('click', () => {
+    profileEditForm.classList.add('hidden');
+    profileListSection.classList.remove('hidden');
+  });
+
+  btnToggleEditTokenVisibility.addEventListener('click', () => {
+    if (editBotToken.type === 'password') {
+      editBotToken.type = 'text';
+      btnToggleEditTokenVisibility.textContent = '🔒';
+    } else {
+      editBotToken.type = 'password';
+      btnToggleEditTokenVisibility.textContent = '👁️';
+    }
+  });
+
+  btnTestProfileConnection.addEventListener('click', async () => {
+    const token = editBotToken.value.trim();
+    const chatId = editChatId.value.trim();
+    const topicId = editTopicId.value.trim();
+
+    profileTestResult.className = 'test-result';
+    profileTestResult.classList.remove('hidden');
+    profileTestResult.textContent = 'Testing connection...';
+    testProfileSpinner.classList.remove('hidden');
+    btnTestProfileConnection.disabled = true;
+
+    try {
+      const result = await TelegramService.testConnection(token, chatId, topicId);
+      if (result.success) {
+        profileTestResult.className = 'test-result success';
+        profileTestResult.textContent = `✓ Connected! Bot @${result.botUsername} sent ping${topicId ? ' (Topic ' + topicId + ')' : ''}.`;
+      } else {
+        profileTestResult.className = 'test-result error';
+        profileTestResult.textContent = `✕ Failed: ${result.error}`;
+      }
+    } catch (err) {
+      profileTestResult.className = 'test-result error';
+      profileTestResult.textContent = `✕ Error: ${err.message || err}`;
+    } finally {
+      testProfileSpinner.classList.add('hidden');
+      btnTestProfileConnection.disabled = false;
+    }
+  });
+
+  btnSaveProfileEdit.addEventListener('click', async () => {
+    const name = editProfileName.value.trim();
+    if (!name) {
+      showBanner('Profile name is required.', 'error');
+      return;
+    }
+
+    const data = {
+      name,
+      botToken: editBotToken.value.trim(),
+      chatId: editChatId.value.trim(),
+      topicId: editTopicId.value.trim(),
+      delayMs: parseInt(editDelay.value, 10) || 500,
+      messageFormat: editFormat.value,
+      disablePreview: editDisablePreview.checked
+    };
+
+    try {
+      if (editingProfileId) {
+        await LinkStorage.updateProfile(editingProfileId, data);
+        showBanner(`Profile "${name}" saved!`, 'success');
+      } else {
+        const newProfile = await LinkStorage.addProfile(data);
+        // Make the newly created profile active
+        await LinkStorage.setActiveProfileId(newProfile.id);
+        showBanner(`Profile "${name}" created and set as active!`, 'success');
+      }
+
+      await loadProfiles();
+      profileEditForm.classList.add('hidden');
+      profileListSection.classList.remove('hidden');
+    } catch (err) {
+      showBanner(`Failed to save: ${err.message}`, 'error');
+    }
+  });
+
+  // ─── Active Tab Grabber ─────────────────────────────────────────────────────
+
   async function fetchActiveTab() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -127,8 +369,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentActiveTab = tab;
         activeTabTitle.textContent = tab.title || tab.url;
         activeTabUrl.textContent = tab.url;
-
-        // Check if already in queue
         updateGrabButtonState();
       } else {
         activeTabTitle.textContent = 'No active webpage detected';
@@ -182,7 +422,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // --- Load and Render Links ---
+  // ─── Load and Render Links ───────────────────────────────────────────────────
+
   async function loadLinks() {
     allLinks = await LinkStorage.getLinks();
     updateCounters();
@@ -208,11 +449,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function getFilteredLinks() {
     return allLinks.filter(item => {
-      // Filter tab
       if (currentFilter === 'pending' && item.status === 'sent') return false;
       if (currentFilter === 'sent' && item.status !== 'sent') return false;
 
-      // Search query
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesUrl = item.url && item.url.toLowerCase().includes(q);
@@ -229,7 +468,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const filtered = getFilteredLinks();
     linksTableBody.textContent = '';
 
-    // Handle Empty States
     if (allLinks.length === 0) {
       emptyState.classList.remove('hidden');
       noMatchState.classList.add('hidden');
@@ -252,7 +490,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     noMatchState.classList.add('hidden');
     selectAllCheckbox.disabled = false;
 
-    // Check if all filtered are selected
     const allFilteredSelected = filtered.every(item => selectedIds.has(item.id));
     selectAllCheckbox.checked = filtered.length > 0 && allFilteredSelected;
 
@@ -344,7 +581,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateSelectionBar();
   }
 
-  // --- Table Event Delegation (Checkbox, Send single, Delete single) ---
+  // --- Table Event Delegation ---
   linksTableBody.addEventListener('click', async (e) => {
     const target = e.target.closest('button, input');
     if (!target) return;
@@ -359,7 +596,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         selectedIds.delete(id);
       }
       updateSelectionBar();
-      // Update header select-all state
       const filtered = getFilteredLinks();
       selectAllCheckbox.checked = filtered.length > 0 && filtered.every(item => selectedIds.has(item.id));
       return;
@@ -434,7 +670,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     await LinkStorage.clearSentLinks();
-    // Clean up selectedIds if any were sent
     selectedIds.clear();
     await loadLinks();
     showBanner(`Cleared ${sentCount} sent link(s).`, 'success');
@@ -476,7 +711,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const lines = urlsText.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
       if (lines.length === 1) {
-        // Single link
         const result = await LinkStorage.addLink({ url: lines[0], title: titleText || lines[0] });
         if (result.isDuplicate) {
           showBanner(`"${result.item.domain || result.item.url}" is already saved.`, 'info');
@@ -484,7 +718,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           showBanner('Link added to queue!', 'success');
         }
       } else {
-        // Bulk links
         const result = await LinkStorage.addBulkUrls(urlsText);
         showBanner(`Added ${result.added} links (${result.duplicates} duplicates skipped).`, 'success');
       }
@@ -503,21 +736,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('manager/manager.html') });
   });
 
-  // --- Settings & Telegram Bot Configuration ---
-  async function loadSettings() {
-    const settings = await LinkStorage.getSettings();
-    settingBotToken.value = settings.botToken || '';
-    settingChatId.value = settings.chatId || '';
-    settingTopicId.value = settings.topicId || '';
-    settingDelay.value = settings.delayMs || 500;
-    settingFormat.value = settings.messageFormat || 'url_only';
-    settingDisablePreview.checked = Boolean(settings.disablePreview);
-  }
-
+  // --- Settings Drawer Toggle ---
   btnToggleSettings.addEventListener('click', () => {
     settingsDrawer.classList.toggle('hidden');
     if (!settingsDrawer.classList.contains('hidden')) {
       manualAddDrawer.classList.add('hidden');
+      // Always show profile list when opening
+      profileEditForm.classList.add('hidden');
+      profileListSection.classList.remove('hidden');
       hideBanner();
     }
   });
@@ -526,74 +752,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     settingsDrawer.classList.add('hidden');
   });
 
-  btnToggleTokenVisibility.addEventListener('click', () => {
-    if (settingBotToken.type === 'password') {
-      settingBotToken.type = 'text';
-      btnToggleTokenVisibility.textContent = '🔒';
-    } else {
-      settingBotToken.type = 'password';
-      btnToggleTokenVisibility.textContent = '👁️';
-    }
-  });
+  // ─── Telegram Sending Logic ──────────────────────────────────────────────────
 
-  btnSaveSettings.addEventListener('click', async () => {
-    const updated = {
-      botToken: settingBotToken.value.trim(),
-      chatId: settingChatId.value.trim(),
-      topicId: settingTopicId.value.trim(),
-      delayMs: parseInt(settingDelay.value, 10) || 500,
-      messageFormat: settingFormat.value,
-      disablePreview: settingDisablePreview.checked
-    };
-
-    await LinkStorage.saveSettings(updated);
-    showBanner('Telegram settings saved successfully!', 'success');
-    settingsDrawer.classList.add('hidden');
-  });
-
-  btnTestConnection.addEventListener('click', async () => {
-    const token = settingBotToken.value.trim();
-    const chatId = settingChatId.value.trim();
-    const topicId = settingTopicId.value.trim();
-
-    testConnectionResult.classList.remove('hidden', 'success', 'error');
-    testConnectionResult.textContent = 'Testing connection with Telegram...';
-    testBtnSpinner.classList.remove('hidden');
-    btnTestConnection.disabled = true;
-
-    try {
-      const result = await TelegramService.testConnection(token, chatId, topicId);
-      if (result.success) {
-        testConnectionResult.className = 'test-result success';
-        testConnectionResult.textContent = `✓ Connected! Verified bot @${result.botUsername} and sent ping to chat${topicId ? ' (Topic ' + topicId + ')' : ''}.`;
-      } else {
-        testConnectionResult.className = 'test-result error';
-        testConnectionResult.textContent = `✕ Failed: ${result.error}`;
-      }
-    } catch (err) {
-      testConnectionResult.className = 'test-result error';
-      testConnectionResult.textContent = `✕ Error: ${err.message || err}`;
-    } finally {
-      testBtnSpinner.classList.add('hidden');
-      btnTestConnection.disabled = false;
-    }
-  });
-
-  // --- Telegram Sending Logic (Per Bubble) ---
-  async function checkCredentials() {
-    const settings = await LinkStorage.getSettings();
-    if (!settings.botToken || !settings.chatId) {
+  /** Get the currently selected profile for sending */
+  async function getActiveProfile() {
+    const profile = await LinkStorage.getActiveProfile();
+    if (!profile || !profile.botToken || !profile.chatId) {
       settingsDrawer.classList.remove('hidden');
-      showBanner('Please enter your Telegram Bot Token and Chat ID first.', 'error', 5000);
+      profileEditForm.classList.add('hidden');
+      profileListSection.classList.remove('hidden');
+      showBanner('Please configure a Telegram profile with Bot Token and Chat ID first.', 'error', 5000);
       return null;
     }
-    return settings;
+    return profile;
   }
 
   // Single Link Send
   async function sendSingleLink(id, buttonEl) {
-    const settings = await checkCredentials();
-    if (!settings) return;
+    const profile = await getActiveProfile();
+    if (!profile) return;
 
     const linkItem = allLinks.find(l => l.id === id);
     if (!linkItem) return;
@@ -603,7 +780,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     buttonEl.textContent = '⏳';
 
     try {
-      const result = await TelegramService.sendSingleBubble(settings.botToken, settings.chatId, linkItem, settings);
+      const result = await TelegramService.sendSingleBubble(profile.botToken, profile.chatId, linkItem, profile);
 
       if (result.success) {
         await LinkStorage.markStatus(id, 'sent');
@@ -623,8 +800,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Bulk Send (All Unsent or Selected)
   async function startBulkSend(targetItems, label) {
-    const settings = await checkCredentials();
-    if (!settings) return;
+    const profile = await getActiveProfile();
+    if (!profile) return;
 
     if (targetItems.length === 0) {
       showBanner('No unsent links to send.', 'info');
@@ -634,7 +811,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     isSendingActive = true;
     abortSendController = false;
 
-    // Show Progress Overlay
     progressOverlay.classList.remove('hidden');
     progressTitle.textContent = label;
     progressBarFill.style.width = '0%';
@@ -653,14 +829,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const item = targetItems[i];
       const stepIndex = i + 1;
 
-      // Update progress UI
       progressStep.textContent = `${stepIndex} / ${total}`;
       const percent = Math.round((i / total) * 100);
       progressBarFill.style.width = `${percent}%`;
       progressCurrentUrl.textContent = `Sending ${item.domain || item.url}...`;
 
-      // Dispatch single message bubble
-      const result = await TelegramService.sendSingleBubble(settings.botToken, settings.chatId, item, settings);
+      const result = await TelegramService.sendSingleBubble(profile.botToken, profile.chatId, item, profile);
 
       if (result.success) {
         await LinkStorage.markStatus(item.id, 'sent');
@@ -670,17 +844,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         failCount++;
       }
 
-      // Live update table row state
       await loadLinks();
 
-      // Delay between bubbles to avoid rate-limiting (unless it's the last item or cancelled)
       if (stepIndex < total && !abortSendController) {
-        const delay = settings.delayMs || 500;
+        const delay = profile.delayMs || 500;
         await TelegramService.sleep(delay);
       }
     }
 
-    // Finished
     progressBarFill.style.width = '100%';
     progressOverlay.classList.add('hidden');
     isSendingActive = false;
