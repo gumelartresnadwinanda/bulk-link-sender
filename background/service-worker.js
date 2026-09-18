@@ -18,19 +18,19 @@ chrome.runtime.onInstalled.addListener(async () => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: CONTEXT_MENU_IDS.PAGE,
-      title: 'Add current page to Telegram queue',
+      title: 'Grab current page to Telegram queue',
       contexts: ['page']
     });
 
     chrome.contextMenus.create({
       id: CONTEXT_MENU_IDS.LINK,
-      title: 'Add link to Telegram queue',
+      title: 'Grab link to Telegram queue',
       contexts: ['link']
     });
 
     chrome.contextMenus.create({
       id: CONTEXT_MENU_IDS.SELECTION,
-      title: 'Add selected URL to Telegram queue',
+      title: 'Grab selected URL to Telegram queue',
       contexts: ['selection']
     });
   });
