@@ -694,59 +694,60 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    isSendingActive = true;
-    abortSend = false;
-
-    mgrProgressOverlay.classList.remove('hidden');
-    mgrProgressTitle.textContent = title;
-    mgrProgressBarFill.style.width = '0%';
-    btnMgrStopSend.disabled = false;
-
-    let successCount = 0;
-    let failCount = 0;
-    const total = items.length;
-
-    for (let i = 0; i < total; i++) {
-      if (abortSend) {
-        showAlert(`Queue paused (${successCount} sent, ${failCount} failed).`, 'info');
-        break;
-      }
-
-      const item = items[i];
-      const step = i + 1;
-
-      mgrProgressStep.textContent = `${step} / ${total}`;
-      const pct = Math.round((i / total) * 100);
-      mgrProgressBarFill.style.width = `${pct}%`;
-      mgrProgressCurrentUrl.textContent = `Sending ${item.domain || item.url}...`;
-
-      const result = await TelegramService.sendSingleBubble(profile.botToken, profile.chatId, item, profile);
-      if (result.success) {
-        await LinkStorage.markStatus(item.id, 'sent');
-        successCount++;
+    const targetIds = items.map(item => item.id);
+    chrome.runtime.sendMessage({ type: 'START_BULK_SEND', targetIds, title }, (response) => {
+      if (response && response.success) {
+        isSendingActive = true;
       } else {
-        await LinkStorage.markStatus(item.id, 'failed', result.error);
-        failCount++;
+        showAlert(`Failed to start: ${response?.error || 'Unknown'}`, 'error');
       }
-
-      await loadLinks();
-
-      if (step < total && !abortSend) {
-        const delay = profile.delayMs || 500;
-        await TelegramService.sleep(delay);
+    });
+  }
+  
+  // Handle Background Progress Messages
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === 'BULK_SEND_PROGRESS' && msg.status) {
+      const s = msg.status;
+      isSendingActive = true;
+      mgrProgressOverlay.classList.remove('hidden');
+      mgrProgressTitle.textContent = s.title || 'Sending to Telegram...';
+      mgrProgressStep.textContent = `${s.currentIdx} / ${s.total}`;
+      const pct = Math.round((s.currentIdx / s.total) * 100);
+      mgrProgressBarFill.style.width = `${pct}%`;
+      mgrProgressCurrentUrl.textContent = `Sending ${s.currentUrl}...`;
+      btnMgrStopSend.disabled = false;
+      loadLinks(); // Refresh table
+    } else if (msg.type === 'BULK_SEND_FINISHED') {
+      isSendingActive = false;
+      mgrProgressOverlay.classList.add('hidden');
+      const s = msg.status;
+      if (!msg.aborted) {
+        showAlert(`Bulk send complete: ${s.successCount} sent, ${s.failCount} failed.`, s.successCount > 0 ? 'success' : 'error');
+      } else {
+        showAlert(`Queue paused (${s.successCount} sent, ${s.failCount} failed).`, 'info');
       }
+      selectedIds.clear();
+      loadLinks();
     }
+  });
 
-    mgrProgressBarFill.style.width = '100%';
-    mgrProgressOverlay.classList.add('hidden');
-    isSendingActive = false;
-
-    if (!abortSend) {
-      showAlert(`Bulk send complete: ${successCount} sent, ${failCount} failed.`, successCount > 0 ? 'success' : 'error');
-    }
-
-    selectedIds.clear();
-    await loadLinks();
+  // Check on load if background sending is active
+  async function checkBackgroundStatus() {
+    return new Promise(resolve => {
+      chrome.runtime.sendMessage({ type: 'GET_SEND_STATUS' }, (response) => {
+        if (response && response.status && response.status.active) {
+          const s = response.status;
+          isSendingActive = true;
+          mgrProgressOverlay.classList.remove('hidden');
+          mgrProgressTitle.textContent = s.title || 'Sending to Telegram...';
+          mgrProgressStep.textContent = `${s.currentIdx} / ${s.total}`;
+          const pct = s.total > 0 ? Math.round((s.currentIdx / s.total) * 100) : 0;
+          mgrProgressBarFill.style.width = `${pct}%`;
+          mgrProgressCurrentUrl.textContent = `Sending ${s.currentUrl}...`;
+        }
+        resolve();
+      });
+    });
   }
 
   btnManagerSendAll.addEventListener('click', async () => {
@@ -762,9 +763,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   btnMgrStopSend.addEventListener('click', () => {
-    abortSend = true;
     btnMgrStopSend.disabled = true;
     mgrProgressCurrentUrl.textContent = 'Stopping queue...';
+    chrome.runtime.sendMessage({ type: 'STOP_BULK_SEND' });
   });
 
   // ─── Export to CSV ───────────────────────────────────────────────────────────
@@ -820,5 +821,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Run initialization
+  const originalInit = init;
+  init = async () => {
+    await originalInit();
+    await checkBackgroundStatus();
+  };
   await init();
 });
