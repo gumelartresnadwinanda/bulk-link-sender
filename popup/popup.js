@@ -808,64 +808,65 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    isSendingActive = true;
-    abortSendController = false;
-
-    progressOverlay.classList.remove('hidden');
-    progressTitle.textContent = label;
-    progressBarFill.style.width = '0%';
-    btnCancelSend.disabled = false;
-
-    let successCount = 0;
-    let failCount = 0;
-    const total = targetItems.length;
-
-    for (let i = 0; i < total; i++) {
-      if (abortSendController) {
-        showBanner(`Sending stopped by user (${successCount} sent, ${failCount} failed).`, 'info');
-        break;
+    const targetIds = targetItems.map(item => item.id);
+    chrome.runtime.sendMessage({ type: 'START_BULK_SEND', targetIds, title: label }, (response) => {
+      if (response && response.success) {
+        // Handled by message listener showing the UI
+        isSendingActive = true;
+      } else {
+        showBanner(`Failed to start: ${response?.error || 'Unknown'}`, 'error');
       }
+    });
+  }
 
-      const item = targetItems[i];
-      const stepIndex = i + 1;
-
-      progressStep.textContent = `${stepIndex} / ${total}`;
-      const percent = Math.round((i / total) * 100);
+  // Handle Background Progress Messages
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === 'BULK_SEND_PROGRESS' && msg.status) {
+      const s = msg.status;
+      isSendingActive = true;
+      progressOverlay.classList.remove('hidden');
+      progressTitle.textContent = s.title || 'Sending to Telegram...';
+      progressStep.textContent = `${s.currentIdx} / ${s.total}`;
+      const percent = Math.round((s.currentIdx / s.total) * 100);
       progressBarFill.style.width = `${percent}%`;
-      progressCurrentUrl.textContent = `Sending ${item.domain || item.url}...`;
-
-      const result = await TelegramService.sendSingleBubble(profile.botToken, profile.chatId, item, profile);
-
-      if (result.success) {
-        await LinkStorage.markStatus(item.id, 'sent');
-        successCount++;
+      progressCurrentUrl.textContent = `Sending ${s.currentUrl}...`;
+      btnCancelSend.disabled = false;
+      loadLinks(); // Refresh table in background
+    } else if (msg.type === 'BULK_SEND_FINISHED') {
+      isSendingActive = false;
+      progressOverlay.classList.add('hidden');
+      const s = msg.status;
+      if (!msg.aborted) {
+        if (s.failCount === 0) {
+          showBanner(`🎉 All ${s.successCount} links sent to Telegram!`, 'success', 4500);
+        } else {
+          showBanner(`Sent ${s.successCount} links (${s.failCount} failed. Check red badges for details).`, 'info', 5000);
+        }
       } else {
-        await LinkStorage.markStatus(item.id, 'failed', result.error);
-        failCount++;
+        showBanner(`Queue paused (${s.successCount} sent, ${s.failCount} failed).`, 'info');
       }
-
-      await loadLinks();
-
-      if (stepIndex < total && !abortSendController) {
-        const delay = profile.delayMs || 500;
-        await TelegramService.sleep(delay);
-      }
+      selectedIds.clear();
+      loadLinks();
     }
+  });
 
-    progressBarFill.style.width = '100%';
-    progressOverlay.classList.add('hidden');
-    isSendingActive = false;
-
-    if (!abortSendController) {
-      if (failCount === 0) {
-        showBanner(`🎉 All ${successCount} links sent to Telegram!`, 'success', 4500);
-      } else {
-        showBanner(`Sent ${successCount} links (${failCount} failed. Check red badges for details).`, 'info', 5000);
-      }
-    }
-
-    selectedIds.clear();
-    await loadLinks();
+  // Check on load if background sending is active
+  async function checkBackgroundStatus() {
+    return new Promise(resolve => {
+      chrome.runtime.sendMessage({ type: 'GET_SEND_STATUS' }, (response) => {
+        if (response && response.status && response.status.active) {
+          const s = response.status;
+          isSendingActive = true;
+          progressOverlay.classList.remove('hidden');
+          progressTitle.textContent = s.title || 'Sending to Telegram...';
+          progressStep.textContent = `${s.currentIdx} / ${s.total}`;
+          const percent = s.total > 0 ? Math.round((s.currentIdx / s.total) * 100) : 0;
+          progressBarFill.style.width = `${percent}%`;
+          progressCurrentUrl.textContent = `Sending ${s.currentUrl}...`;
+        }
+        resolve();
+      });
+    });
   }
 
   // Send All Unsent Button
@@ -884,11 +885,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Cancel Bulk Send
   btnCancelSend.addEventListener('click', () => {
-    abortSendController = true;
     btnCancelSend.disabled = true;
     progressCurrentUrl.textContent = 'Stopping queue...';
+    chrome.runtime.sendMessage({ type: 'STOP_BULK_SEND' });
   });
 
   // Initialize
+  const originalInit = init;
+  init = async () => {
+    await originalInit();
+    await checkBackgroundStatus();
+  };
   await init();
 });

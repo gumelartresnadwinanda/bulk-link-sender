@@ -95,6 +95,104 @@ async function handleAddLinkFromAction(url, title) {
   }
 }
 
+// Background Bulk Sending State
+let isSending = false;
+let abortSend = false;
+let sendStatus = {
+  active: false,
+  title: '',
+  currentIdx: 0,
+  total: 0,
+  successCount: 0,
+  failCount: 0,
+  currentUrl: ''
+};
+
+// Function to keep SW alive during long bulk sends
+let keepAliveInterval = null;
+function startKeepAlive() {
+  if (keepAliveInterval) clearInterval(keepAliveInterval);
+  keepAliveInterval = setInterval(() => {
+    chrome.runtime.getPlatformInfo(); // Dummy call to keep SW alive
+  }, 20000);
+}
+function stopKeepAlive() {
+  if (keepAliveInterval) clearInterval(keepAliveInterval);
+}
+
+// Background Bulk Sending Logic
+async function runBackgroundSend(targetIds, title) {
+  if (isSending) return;
+  const profile = await LinkStorage.getActiveProfile();
+  if (!profile) return;
+  
+  const links = await LinkStorage.getLinks();
+  const targetItems = links.filter(l => targetIds.includes(l.id));
+  
+  isSending = true;
+  abortSend = false;
+  sendStatus = {
+    active: true,
+    title: title,
+    currentIdx: 0,
+    total: targetItems.length,
+    successCount: 0,
+    failCount: 0,
+    currentUrl: ''
+  };
+  
+  startKeepAlive();
+  
+  try {
+    for (let i = 0; i < targetItems.length; i++) {
+      if (abortSend) break;
+      
+      const item = targetItems[i];
+      sendStatus.currentIdx = i + 1;
+      sendStatus.currentUrl = item.domain || item.url;
+      
+      // Broadcast progress update to UI
+      chrome.runtime.sendMessage({ type: 'BULK_SEND_PROGRESS', status: sendStatus }).catch(() => {});
+
+      const result = await TelegramService.sendSingleBubble(profile.botToken, profile.chatId, item, profile);
+      
+      if (result.success) {
+        await LinkStorage.markStatus(item.id, 'sent');
+        sendStatus.successCount++;
+      } else {
+        await LinkStorage.markStatus(item.id, 'failed', result.error);
+        sendStatus.failCount++;
+      }
+      
+      // Delay before next message (only if not aborted and not the last item)
+      if (sendStatus.currentIdx < targetItems.length && !abortSend) {
+        const delay = profile.delayMs || 500;
+        await TelegramService.sleep(delay);
+      }
+    }
+  } catch (err) {
+    console.error("Error during background bulk send:", err);
+  } finally {
+    isSending = false;
+    sendStatus.active = false;
+    stopKeepAlive();
+    
+    // Broadcast finish to UI
+    chrome.runtime.sendMessage({ type: 'BULK_SEND_FINISHED', status: sendStatus, aborted: abortSend }).catch(() => {});
+    
+    // Show notification to user
+    const msg = abortSend 
+      ? `Queue paused (${sendStatus.successCount} sent, ${sendStatus.failCount} failed).`
+      : `Bulk send complete: ${sendStatus.successCount} sent, ${sendStatus.failCount} failed.`;
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon-128.png',
+      title: 'Bulk Send Finished',
+      message: msg
+    });
+  }
+}
+
 // Runtime message passing
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
@@ -105,6 +203,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } else if (message.type === 'UPDATE_BADGE') {
         await LinkStorage.updateBadge();
         sendResponse({ success: true });
+      } else if (message.type === 'START_BULK_SEND') {
+        if (!isSending) {
+          runBackgroundSend(message.targetIds, message.title);
+          sendResponse({ success: true });
+        } else {
+          sendResponse({ success: false, error: 'Already sending' });
+        }
+      } else if (message.type === 'STOP_BULK_SEND') {
+        abortSend = true;
+        sendResponse({ success: true });
+      } else if (message.type === 'GET_SEND_STATUS') {
+        sendResponse({ status: sendStatus });
       } else {
         sendResponse({ success: false, error: 'Unknown message type' });
       }
