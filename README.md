@@ -1,90 +1,105 @@
-# Bulk Link Sender to Telegram (Chrome Extension)
+# Bulk Link Sender to Telegram
 
-A Chrome Extension (Manifest V3) that captures active tab URLs, organizes them into a searchable table with status tracking, and sends them to Telegram either one-by-one or in bulk as **individual message bubbles**.
+A cross-browser extension (Chrome & Firefox Manifest V3) that captures URLs from your browsing sessions, organizes them in a searchable local queue, and sends them to Telegram as individual message bubbles. Features multi-profile destination routing, Supergroup Forum Topic support, and background execution.
+
+---
+
+## Use Cases
+
+### Personal Cross-Device Sync & Read-Later Queue
+Send articles, videos, and references from your desktop browser directly to your Telegram Saved Messages chat (`chat_id` obtained via [@userinfobot](https://t.me/userinfobot)). When you finish browsing on your desktop, dispatch the queue in bulk. Every link arrives on your mobile Telegram app as an individual message bubble with native link previews.
+
+### Supergroup Forum Topic Dispatching
+If you manage or participate in Telegram Supergroups with Topics enabled, configure distinct profiles for each topic (e.g., `#tech-news`, `#design-inspiration`, `#competitor-watch`) using their respective `message_thread_id`. Switch destination profiles directly from the extension toolbar and dispatch links to the appropriate thread.
+
+### Ingestion for Downloader & Automation Bots
+Many Telegram-based utility bots (video downloaders, archivers, scrapers, or LLM-based summarization webhooks) require URLs to be sent one per message bubble. The extension's configurable inter-message delay (default 500ms) delivers links sequentially in the background without triggering Telegram API rate limits.
+
+### Content Curation & Channel Broadcasting
+Collect links throughout your research workflow. Open the full-page manager dashboard to prune candidates, verify status, select either "Title + URL" or "URL Only" formatting, and broadcast the curated batch directly to a public or private channel.
+
+### QA Testing, Sourcing & Team Research
+- **QA Reporting:** Capture URLs of pages with bugs or staging environments and batch-send them directly to an engineering group.
+- **Candidate Sourcing:** Gather candidate profiles (LinkedIn, GitHub) and route them to hiring channels.
+- **Audit Trails:** Export collected links to CSV at any time with timestamps and delivery status.
+
+### E-Commerce & Product Comparison
+Capture multiple product listings across different stores during comparison shopping and send them to a shared chat for collaborative review on mobile devices.
 
 ---
 
 ## Features
 
-- ⚡ **1-Click Active Tab Grab**: Instantly grabs the active tab's URL and title.
-- 💬 **Per-Bubble Telegram Delivery**: Each link is delivered as its own individual Telegram chat bubble (e.g. `https://instagram.com/me`, `https://docs.google.com/s`).
-- ⏱️ **Rate-Limit Safe Queue**: Sequential bulk-sending with configurable delays (default 500ms) to ensure smooth delivery without hitting Telegram API rate limits.
-- 📋 **Saved Links Table**: Filter by **All**, **Unsent (Pending)**, or **Sent**. Real-time search by domain, URL, or page title.
-- 🎯 **Single & Batch Controls**: Send individual links via table row buttons, or click **Send All Unsent** / **Send Selected**.
-- 🖱️ **Context Menus & Shortcut**: Right-click any webpage or link to add it to the queue. Press `Alt + Shift + S` to quickly grab the active tab.
-- 📊 **Full-Screen Dashboard**: Open a dedicated management tab with stats, multi-selection tools, CSV export, and bulk URL pasting.
-- 🔒 **Privacy First**: Your links and Telegram Bot credentials are stored locally in your browser (`chrome.storage.local`).
+- **Active Tab Capture:** Grab the current tab URL and title with a single click or keyboard shortcut (`Alt + Shift + S`).
+- **Per-Bubble Delivery:** Delivers each link as an individual chat bubble for clean media previews and compatibility with external automation bots.
+- **Background Execution:** Bulk send jobs run within the background service worker, allowing you to close the popup, switch tabs, or browse freely while sending proceeds.
+- **Multi-Profile Support:** Manage multiple Telegram bot tokens, chat IDs, and topic IDs across separate named profiles with quick dropdown switching.
+- **Forum Topic Support:** Full support for Telegram Supergroup Forum Topics via optional `message_thread_id`.
+- **Rate-Limit Safe:** Configurable delay between message dispatches to prevent Telegram API rate limiting (`429 Too Many Requests`).
+- **Local Link Management:** Filter by All, Pending, or Sent status; search across domain, URL, and page title.
+- **Context Menus:** Right-click any link or page to immediately queue it.
+- **Manager Dashboard:** Full-page interface with bulk URL import, multi-select operations, and CSV export.
+- **Local Storage:** All links and credentials are stored strictly in `chrome.storage.local`. No external servers or third-party tracking.
 
 ---
 
-## How to Install
+## Installation
 
-### In Google Chrome (or Brave / Edge / Opera)
-1. Open Google Chrome.
-2. Navigate to `chrome://extensions/` in the address bar.
-3. Enable **Developer mode** using the toggle switch in the top-right corner.
-4. Click the **Load unpacked** button in the top-left.
-5. Select this folder: `e:\Code\2026\bulk-link-sender`
-6. Pin **Bulk Link Sender** to your toolbar.
+### Google Chrome, Brave, Edge, Opera
+1. Clone or download this repository.
+2. Navigate to `chrome://extensions/` (or `edge://extensions/`).
+3. Enable **Developer mode** in the top-right corner.
+4. Click **Load unpacked** in the top-left corner.
+5. Select the `bulk-link-sender` root folder.
+6. Pin the extension to your toolbar.
 
-### In Mozilla Firefox
-1. Open Mozilla Firefox.
-2. Navigate to `about:debugging#/runtime/this-firefox` in the address bar.
-3. Click **Load Temporary Add-on...**
-4. Select `manifest.json` inside this folder: `e:\Code\2026\bulk-link-sender\manifest.json`
-5. The extension is immediately loaded and ready to use!
+### Mozilla Firefox
+1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on...**
+3. Select `manifest.json` inside the `bulk-link-sender` directory (or the `.zip` archive in `web-ext-artifacts/`).
 
 ---
 
-## Setting Up Your Telegram Bot (2 Minutes)
+## Telegram Setup
 
-To send links into Telegram, you need a **Bot Token** and your **Chat ID**:
+To send links into Telegram, you need a Bot Token and a target Chat ID:
 
-### Step 1: Get a Bot Token
-1. Open Telegram and search for [@BotFather](https://t.me/BotFather).
-2. Send `/newbot` and follow the prompts to choose a name and username (e.g. `MyLinkQueueBot`).
-3. BotFather will provide an API token that looks like:  
-   `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`
-4. Copy this token.
+### 1. Create a Bot
+1. In Telegram, open a chat with [@BotFather](https://t.me/BotFather).
+2. Send `/newbot` and follow the prompts to choose a display name and username (e.g., `MyLinkQueueBot`).
+3. Copy the HTTP API token provided by BotFather (format: `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`).
 
-### Step 2: Get Your Chat ID (and optional Topic ID)
-1. Search for your new bot in Telegram and click **START** (or send `/start`).  
-   *(Crucial: A bot cannot message you until you start a chat with it).*
-2. To find your numeric Chat ID:
-   - Message [@userinfobot](https://t.me/userinfobot) in Telegram. It will instantly reply with your `Id` (e.g. `987654321`).
-   - For a Telegram Group/Supergroup: Add your bot to the group and use the group ID (e.g. `-100123456789`).
-   - For a public Channel: Use `@yourchannelname` (ensure bot is an admin).
+### 2. Obtain Your Chat ID & Topic ID
+1. Open a chat with your new bot and click **START** or send `/start` (required before a bot can message you).
+2. Find your Chat ID:
+   - **Personal / Saved Messages:** Message [@userinfobot](https://t.me/userinfobot) to get your numeric ID (e.g., `987654321`).
+   - **Group / Supergroup:** Add your bot to the group and use the group ID (e.g., `-100123456789`).
+   - **Public Channel:** Add your bot as an admin and use `@yourchannelname`.
 3. **Optional Topic ID (Thread ID):**
-   - If you are sending into a Telegram Forum Supergroup with Topics enabled, copy the topic link or thread ID (e.g. `12`) and enter it in the **Topic ID** field.
-   - If sending to a regular chat or group, simply leave **Topic ID** blank.
+   - If sending to a specific topic inside a Forum Supergroup, obtain the topic link or thread ID (e.g., `12`) and fill in the **Topic ID** field.
+   - For regular chats and channels, leave the Topic ID field blank.
 
-### Step 3: Configure the Extension
-1. Click the **Bulk Link Sender** icon in Chrome.
-2. Click the ⚙️ (Settings) button in the top-right.
-3. Paste your **Bot Token**, **Chat ID**, and optional **Topic ID**.
-4. Click **Test Connection Ping** to verify everything works!
-5. Click **Save Settings**.
+### 3. Add Profiles in the Extension
+1. Click the extension icon in your browser toolbar.
+2. Click the gear icon to open the **Telegram Profiles** drawer.
+3. Click **+ Add New Profile** (or edit the Default profile).
+4. Enter a profile name (e.g., `Personal`, `Dev Forum`, `Deals Channel`), paste the Bot Token, Chat ID, and optional Topic ID.
+5. Click **Test Connection** to verify delivery.
+6. Click **Save Profile**.
 
 ---
 
-## How to Use
+## Quick Reference
 
-### 1. Adding Links
-- **From Popup:** Click **Grab Tab** to save the webpage you are currently viewing.
-- **Manually:** Click the `+` button in the popup to paste one or multiple URLs.
-- **From Webpage:** Right-click anywhere on a webpage or link -> **Add to Telegram queue**.
-- **Keyboard Shortcut:** Press `Alt + Shift + S` on any page.
-
-### 2. Sending Links
-- **Send Single Link:** Click the Telegram paper-airplane button on any row in the table.
-- **Send All Unsent:** Click the large blue **Send All Unsent to Telegram** button. The extension will deliver each link as a separate chat bubble with live progress.
-- **Send Selected:** Check the boxes for specific links and click **Send Selected**.
-
-### 3. Managing Links
-- Click the ↗ button in the header to open the **Full-Screen Manager Dashboard**.
-- Filter by status (**All**, **Unsent**, **Sent**) or use the search bar.
-- Export your links to a **CSV** file anytime.
-- Clear sent links or individual items with a single click.
+| Action | Method |
+| :--- | :--- |
+| Grab Active Tab | Click **Grab Tab** in popup, or press `Alt + Shift + S` |
+| Grab Link on Webpage | Right-click link -> select **Grab link to Telegram queue** |
+| Switch Destination Profile | Select from the **Send via:** dropdown in the popup toolbar |
+| Send Single Link | Click the airplane icon on any table row |
+| Send All Unsent | Click **Send All Unsent to Telegram** (runs in background) |
+| Bulk Import URLs | Open Manager -> **Bulk Import** -> paste URLs -> **Import** |
+| Export Data | Open Manager -> click **Export CSV** |
 
 ---
 
@@ -92,22 +107,26 @@ To send links into Telegram, you need a **Bot Token** and your **Chat ID**:
 
 ```
 bulk-link-sender/
-├── manifest.json              # Chrome Manifest V3 configuration
+├── manifest.json              # Dual Chrome / Firefox Manifest V3 definition
 ├── icons/                     # Extension icons (16x16, 48x48, 128x128)
 ├── background/
-│   └── service-worker.js      # Context menus, badge counter, shortcuts
+│   └── service-worker.js      # Background worker: context menus, badges, background send loop
 ├── popup/
-│   ├── popup.html             # Main popup UI
-│   ├── popup.css              # Styling
-│   └── popup.js               # Tab grabbing, table logic, single & bulk sends
+│   ├── popup.html             # Main popup interface
+│   ├── popup.css              # Popup styling
+│   └── popup.js               # Popup controller, tab capture, queue interface
 ├── manager/
-│   ├── manager.html           # Full-tab management dashboard
+│   ├── manager.html           # Full-page manager dashboard
 │   ├── manager.css            # Dashboard styling
 │   └── manager.js             # Dashboard controller, CSV export, bulk import
 ├── scripts/
-│   ├── storage.js             # Chrome storage local operations & badge updater
-│   └── telegram.js            # Telegram Bot API client & rate-limiting queue
-├── generate-icons.js          # Icon generation utility
-├── CHROMEWEBSTORE.md          # Store listing metadata & permissions justifications
-└── README.md                  # Instructions & documentation
+│   ├── storage.js             # Storage manager (Profiles CRUD, links CRUD, badge updater)
+│   └── telegram.js            # Telegram Bot API client, rate limiting, message formatting
+└── README.md                  # Documentation
 ```
+
+---
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
