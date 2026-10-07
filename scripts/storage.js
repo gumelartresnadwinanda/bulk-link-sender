@@ -162,6 +162,22 @@
       return filtered;
     },
 
+    async duplicateProfile(id) {
+      const profiles = await this.getProfiles();
+      const source = profiles.find(p => p.id === id);
+      if (!source) throw new Error('Source profile not found.');
+
+      const cloned = {
+        ...source,
+        id: genId(),
+        name: `${source.name || 'Profile'} (Copy)`
+      };
+
+      profiles.push(cloned);
+      await this.saveProfiles(profiles);
+      return cloned;
+    },
+
     // ─── Legacy settings shim (for backward compat) ─────────────────────────────
 
     /** @deprecated Use getActiveProfile() instead */

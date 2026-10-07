@@ -219,6 +219,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         cardActions.appendChild(setActiveBtn);
       }
 
+      const duplicateBtn = document.createElement('button');
+      duplicateBtn.className = 'btn btn-secondary btn-sm';
+      duplicateBtn.dataset.action = 'duplicate';
+      duplicateBtn.dataset.id = profile.id;
+      duplicateBtn.textContent = 'Duplicate';
+      cardActions.appendChild(duplicateBtn);
+
       const editBtn = document.createElement('button');
       editBtn.className = 'btn btn-secondary btn-sm';
       editBtn.dataset.action = 'edit';
@@ -251,6 +258,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (action === 'edit') {
       await openMgrProfileEditForm(id);
+    } else if (action === 'duplicate') {
+      try {
+        const cloned = await LinkStorage.duplicateProfile(id);
+        await loadProfiles();
+        await checkBotHealth();
+        showAlert(`Profile duplicated as "${cloned.name}".`, 'success');
+      } catch (err) {
+        showAlert(err.message, 'error');
+      }
     } else if (action === 'delete') {
       const profiles = await LinkStorage.getProfiles();
       const profile = profiles.find(p => p.id === id);

@@ -176,6 +176,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const actions = document.createElement('div');
       actions.className = 'profile-item-actions';
 
+      const duplicateBtn = document.createElement('button');
+      duplicateBtn.className = 'profile-action-btn';
+      duplicateBtn.title = 'Duplicate profile';
+      duplicateBtn.dataset.action = 'duplicate';
+      duplicateBtn.dataset.id = profile.id;
+      duplicateBtn.textContent = '📋';
+
+      actions.appendChild(duplicateBtn);
+
       const editBtn = document.createElement('button');
       editBtn.className = 'profile-action-btn';
       editBtn.title = 'Edit profile';
@@ -201,7 +210,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Profile list click events (edit / delete)
+  // Profile list click events (edit / delete / duplicate)
   profileListContainer.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -211,6 +220,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (action === 'edit') {
       await openProfileEditForm(id);
+    } else if (action === 'duplicate') {
+      try {
+        const cloned = await LinkStorage.duplicateProfile(id);
+        await loadProfiles();
+        showBanner(`Profile duplicated as "${cloned.name}".`, 'success');
+      } catch (err) {
+        showBanner(err.message, 'error');
+      }
     } else if (action === 'delete') {
       const profiles = await LinkStorage.getProfiles();
       const profile = profiles.find(p => p.id === id);
