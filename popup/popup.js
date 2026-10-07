@@ -118,6 +118,74 @@ document.addEventListener('DOMContentLoaded', async () => {
     alertBanner.classList.add('hidden');
   }
 
+  // --- SVG Icon Helper ---
+  function createSvgIcon(name, size = 13) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', String(size));
+    svg.setAttribute('height', String(size));
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+
+    if (name === 'edit') {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z');
+      svg.appendChild(path);
+    } else if (name === 'duplicate') {
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', '9');
+      rect.setAttribute('y', '9');
+      rect.setAttribute('width', '13');
+      rect.setAttribute('height', '13');
+      rect.setAttribute('rx', '2');
+      rect.setAttribute('ry', '2');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1');
+      svg.appendChild(rect);
+      svg.appendChild(path);
+    } else if (name === 'delete') {
+      const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      p1.setAttribute('points', '3 6 5 6 21 6');
+      const p2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p2.setAttribute('d', 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2');
+      svg.appendChild(p1);
+      svg.appendChild(p2);
+    } else if (name === 'send') {
+      const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      p1.setAttribute('x1', '22');
+      p1.setAttribute('y1', '2');
+      p1.setAttribute('x2', '11');
+      p1.setAttribute('y2', '13');
+      const p2 = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      p2.setAttribute('points', '22 2 15 22 11 13 2 9 22 2');
+      svg.appendChild(p1);
+      svg.appendChild(p2);
+    } else if (name === 'eye') {
+      const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p1.setAttribute('d', 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z');
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', '12');
+      circle.setAttribute('cy', '12');
+      circle.setAttribute('r', '3');
+      svg.appendChild(p1);
+      svg.appendChild(circle);
+    } else if (name === 'eye-off') {
+      const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p1.setAttribute('d', 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24');
+      const p2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      p2.setAttribute('x1', '1');
+      p2.setAttribute('y1', '1');
+      p2.setAttribute('x2', '23');
+      p2.setAttribute('y2', '23');
+      svg.appendChild(p1);
+      svg.appendChild(p2);
+    }
+    return svg;
+  }
+
   // --- Initial Data Load ---
   async function init() {
     await loadProfiles();
@@ -181,7 +249,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       duplicateBtn.title = 'Duplicate profile';
       duplicateBtn.dataset.action = 'duplicate';
       duplicateBtn.dataset.id = profile.id;
-      duplicateBtn.textContent = '📋';
+      duplicateBtn.appendChild(createSvgIcon('duplicate', 13));
 
       actions.appendChild(duplicateBtn);
 
@@ -190,7 +258,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       editBtn.title = 'Edit profile';
       editBtn.dataset.action = 'edit';
       editBtn.dataset.id = profile.id;
-      editBtn.textContent = '✏️';
+      editBtn.appendChild(createSvgIcon('edit', 13));
 
       actions.appendChild(editBtn);
 
@@ -200,7 +268,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         deleteBtn.title = 'Delete profile';
         deleteBtn.dataset.action = 'delete';
         deleteBtn.dataset.id = profile.id;
-        deleteBtn.textContent = '🗑';
+        deleteBtn.appendChild(createSvgIcon('delete', 13));
         actions.appendChild(deleteBtn);
       }
 
@@ -261,7 +329,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     editProfileName.value = '';
     editBotToken.value = '';
     editBotToken.type = 'password';
-    btnToggleEditTokenVisibility.textContent = '👁️';
+    btnToggleEditTokenVisibility.textContent = '';
+    btnToggleEditTokenVisibility.appendChild(createSvgIcon('eye', 13));
     editChatId.value = '';
     editTopicId.value = '';
     editDelay.value = 500;
@@ -284,7 +353,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     editProfileName.value = profile.name || '';
     editBotToken.value = profile.botToken || '';
     editBotToken.type = 'password';
-    btnToggleEditTokenVisibility.textContent = '👁️';
+    btnToggleEditTokenVisibility.textContent = '';
+    btnToggleEditTokenVisibility.appendChild(createSvgIcon('eye', 13));
     editChatId.value = profile.chatId || '';
     editTopicId.value = profile.topicId || '';
     editDelay.value = profile.delayMs || 500;
@@ -303,12 +373,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   btnToggleEditTokenVisibility.addEventListener('click', () => {
+    btnToggleEditTokenVisibility.textContent = '';
     if (editBotToken.type === 'password') {
       editBotToken.type = 'text';
-      btnToggleEditTokenVisibility.textContent = '🔒';
+      btnToggleEditTokenVisibility.appendChild(createSvgIcon('eye-off', 13));
     } else {
       editBotToken.type = 'password';
-      btnToggleEditTokenVisibility.textContent = '👁️';
+      btnToggleEditTokenVisibility.appendChild(createSvgIcon('eye', 13));
     }
   });
 
@@ -574,14 +645,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       sendBtn.dataset.action = 'send';
       sendBtn.dataset.id = item.id;
       sendBtn.title = 'Send this link to Telegram bubble';
-      sendBtn.textContent = '✈';
+      sendBtn.appendChild(createSvgIcon('send', 13));
 
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'action-btn delete-btn';
       deleteBtn.dataset.action = 'delete';
       deleteBtn.dataset.id = item.id;
       deleteBtn.title = 'Delete link';
-      deleteBtn.textContent = '🗑';
+      deleteBtn.appendChild(createSvgIcon('delete', 13));
 
       rowActions.appendChild(sendBtn);
       rowActions.appendChild(deleteBtn);
@@ -792,9 +863,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const linkItem = allLinks.find(l => l.id === id);
     if (!linkItem) return;
 
-    const origText = buttonEl.textContent;
     buttonEl.disabled = true;
-    buttonEl.textContent = '⏳';
+    buttonEl.textContent = '';
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    spinner.style.margin = '0';
+    buttonEl.appendChild(spinner);
 
     try {
       const result = await TelegramService.sendSingleBubble(profile.botToken, profile.chatId, linkItem, profile);
@@ -810,7 +884,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       showBanner(`Failed to send: ${err.message}`, 'error');
     } finally {
-      buttonEl.textContent = origText;
+      buttonEl.textContent = '';
+      buttonEl.appendChild(createSvgIcon('send', 13));
       buttonEl.disabled = false;
     }
   }

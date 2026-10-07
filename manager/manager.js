@@ -80,6 +80,59 @@ document.addEventListener('DOMContentLoaded', async () => {
   const mgrProgressCurrentUrl = document.getElementById('mgrProgressCurrentUrl');
   const btnMgrStopSend = document.getElementById('btnMgrStopSend');
 
+  // ─── SVG Icon Helper ─────────────────────────────────────────────────────────
+  function createSvgIcon(name, size = 13) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', String(size));
+    svg.setAttribute('height', String(size));
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+
+    if (name === 'edit') {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z');
+      svg.appendChild(path);
+    } else if (name === 'duplicate') {
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', '9');
+      rect.setAttribute('y', '9');
+      rect.setAttribute('width', '13');
+      rect.setAttribute('height', '13');
+      rect.setAttribute('rx', '2');
+      rect.setAttribute('ry', '2');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1');
+      svg.appendChild(rect);
+      svg.appendChild(path);
+    } else if (name === 'delete') {
+      const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      p1.setAttribute('points', '3 6 5 6 21 6');
+      const p2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      p2.setAttribute('d', 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2');
+      svg.appendChild(p1);
+      svg.appendChild(p2);
+    } else if (name === 'send') {
+      const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      p1.setAttribute('x1', '22');
+      p1.setAttribute('y1', '2');
+      p1.setAttribute('x2', '11');
+      p1.setAttribute('y2', '13');
+      const p2 = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      p2.setAttribute('points', '22 2 15 22 11 13 2 9 22 2');
+      svg.appendChild(p1);
+      svg.appendChild(p2);
+    } else if (name === 'check') {
+      const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      p1.setAttribute('points', '20 6 9 17 4 12');
+      svg.appendChild(p1);
+    }
+    return svg;
+  }
+
   // ─── Banner Helper ───────────────────────────────────────────────────────────
   let alertTimer = null;
   function showAlert(msg, type = 'info', duration = 4000) {
@@ -215,7 +268,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         setActiveBtn.className = 'btn btn-secondary btn-sm';
         setActiveBtn.dataset.action = 'setactive';
         setActiveBtn.dataset.id = profile.id;
-        setActiveBtn.textContent = 'Set Active';
+        setActiveBtn.appendChild(createSvgIcon('check', 13));
+        setActiveBtn.appendChild(document.createTextNode(' Set Active'));
         cardActions.appendChild(setActiveBtn);
       }
 
@@ -223,14 +277,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       duplicateBtn.className = 'btn btn-secondary btn-sm';
       duplicateBtn.dataset.action = 'duplicate';
       duplicateBtn.dataset.id = profile.id;
-      duplicateBtn.textContent = 'Duplicate';
+      duplicateBtn.appendChild(createSvgIcon('duplicate', 13));
+      duplicateBtn.appendChild(document.createTextNode(' Duplicate'));
       cardActions.appendChild(duplicateBtn);
 
       const editBtn = document.createElement('button');
       editBtn.className = 'btn btn-secondary btn-sm';
       editBtn.dataset.action = 'edit';
       editBtn.dataset.id = profile.id;
-      editBtn.textContent = 'Edit';
+      editBtn.appendChild(createSvgIcon('edit', 13));
+      editBtn.appendChild(document.createTextNode(' Edit'));
       cardActions.appendChild(editBtn);
 
       if (profiles.length > 1) {
@@ -238,7 +294,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         deleteBtn.className = 'btn btn-danger btn-sm';
         deleteBtn.dataset.action = 'delete';
         deleteBtn.dataset.id = profile.id;
-        deleteBtn.textContent = 'Delete';
+        deleteBtn.appendChild(createSvgIcon('delete', 13));
+        deleteBtn.appendChild(document.createTextNode(' Delete'));
         cardActions.appendChild(deleteBtn);
       }
 
@@ -536,14 +593,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       sendBtn.dataset.action = 'send';
       sendBtn.dataset.id = item.id;
       sendBtn.title = 'Send bubble to Telegram';
-      sendBtn.textContent = '✈';
+      sendBtn.appendChild(createSvgIcon('send', 14));
 
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'icon-btn-action delete-action';
       deleteBtn.dataset.action = 'delete';
       deleteBtn.dataset.id = item.id;
       deleteBtn.title = 'Delete link';
-      deleteBtn.textContent = '🗑';
+      deleteBtn.appendChild(createSvgIcon('delete', 14));
 
       actionsCell.appendChild(sendBtn);
       actionsCell.appendChild(deleteBtn);
@@ -648,8 +705,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!item) return;
 
     buttonEl.disabled = true;
-    const origText = buttonEl.textContent;
-    buttonEl.textContent = '⏳';
+    buttonEl.textContent = '';
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    spinner.style.margin = '0';
+    buttonEl.appendChild(spinner);
 
     try {
       const result = await TelegramService.sendSingleBubble(profile.botToken, profile.chatId, item, profile);
@@ -664,7 +724,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       showAlert(`Error: ${err.message}`, 'error');
     } finally {
-      buttonEl.textContent = origText;
+      buttonEl.textContent = '';
+      buttonEl.appendChild(createSvgIcon('send', 14));
       buttonEl.disabled = false;
     }
   }
