@@ -18,7 +18,8 @@ Whether you are collecting research articles, Instagram profiles, Google Docs, o
 
 **Key Features:**
 • **1-Click Tab Capture:** Instantly grab and save the URL and title of your active tab.
-• **Per-Bubble Delivery:** Every link is dispatched as an individual Telegram chat bubble for clean reading and easy forwarding.
+• **Flexible Bubble Delivery:** Dispatch links as individual bubbles or combine bulk links into a single message bubble (with a new line per link). Single links can still be sent individually.
+• **Custom Prefix & Postfix:** Configure custom text headers and footers for each profile to automatically include notes, tags, or signatures.
 • **Interactive Link Table:** Search, filter (All / Unsent / Sent), sort, and manage all your saved URLs with live status badges.
 • **Single & Bulk Sending:** Send links one-by-one or blast all unsent links sequentially with a rate-limit safe queue.
 • **Right-Click Context Menu:** Right-click any link or page to immediately add it to your Telegram queue without leaving your workflow.

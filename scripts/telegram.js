@@ -20,15 +20,76 @@
 
     formatMessage(linkItem, settings = {}) {
       const format = settings.messageFormat || 'url_only';
-      const cleanUrl = linkItem.url || '';
+      const cleanUrl = (linkItem.url || '').trim();
       const cleanTitle = (linkItem.title || '').trim();
 
+      let body = cleanUrl;
       if (format === 'title_and_url') {
         if (cleanTitle && cleanTitle.toLowerCase() !== cleanUrl.toLowerCase()) {
-          return `${cleanTitle}\n${cleanUrl}`;
+          body = `${cleanTitle}\n${cleanUrl}`;
         }
       }
-      return cleanUrl;
+
+      const prefix = (settings.prefix || '').trim();
+      const postfix = (settings.postfix || '').trim();
+
+      const parts = [];
+      if (prefix) parts.push(prefix);
+      if (body) parts.push(body);
+      if (postfix) parts.push(postfix);
+
+      return parts.join('\n');
+    },
+
+    formatBulkMessage(linkItems, settings = {}) {
+      if (!Array.isArray(linkItems) || linkItems.length === 0) return '';
+      const format = settings.messageFormat || 'url_only';
+      const separator = format === 'title_and_url' ? '\n\n' : '\n';
+
+      const linkBodies = linkItems.map(item => {
+        const cleanUrl = (item.url || '').trim();
+        const cleanTitle = (item.title || '').trim();
+        if (format === 'title_and_url' && cleanTitle && cleanTitle.toLowerCase() !== cleanUrl.toLowerCase()) {
+          return `${cleanTitle}\n${cleanUrl}`;
+        }
+        return cleanUrl;
+      }).filter(Boolean);
+
+      const body = linkBodies.join(separator);
+      const prefix = (settings.prefix || '').trim();
+      const postfix = (settings.postfix || '').trim();
+
+      const parts = [];
+      if (prefix) parts.push(prefix);
+      if (body) parts.push(body);
+      if (postfix) parts.push(postfix);
+
+      return parts.join('\n');
+    },
+
+    chunkItemsForTelegram(items, settings = {}, maxChars = 4000) {
+      if (!Array.isArray(items) || items.length === 0) return [];
+
+      const chunks = [];
+      let currentChunk = [];
+
+      for (const item of items) {
+        const testChunk = [...currentChunk, item];
+        const testMessage = this.formatBulkMessage(testChunk, settings);
+
+        if (testMessage.length <= maxChars || currentChunk.length === 0) {
+          currentChunk.push(item);
+        } else {
+          chunks.push(currentChunk);
+          currentChunk = [item];
+        }
+      }
+
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk);
+      }
+
+      return chunks;
     },
 
     async getMe(botToken) {
@@ -117,7 +178,7 @@
       }
     },
 
-    async sendSingleBubble(botToken, chatId, linkItem, settings = {}) {
+    async sendTextMessage(botToken, chatId, text, settings = {}) {
       const cleanToken = (botToken || '').trim();
       const cleanChatId = (chatId || '').trim();
 
@@ -125,8 +186,7 @@
         return { success: false, error: 'Missing Bot Token or Chat ID in settings.' };
       }
 
-      const text = this.formatMessage(linkItem, settings);
-      if (!text) {
+      if (!text || !text.trim()) {
         return { success: false, error: 'Empty message text.' };
       }
 
@@ -173,6 +233,16 @@
           error: `Network error: ${err.message || err}`
         };
       }
+    },
+
+    async sendSingleBubble(botToken, chatId, linkItem, settings = {}) {
+      const text = this.formatMessage(linkItem, settings);
+      return await this.sendTextMessage(botToken, chatId, text, settings);
+    },
+
+    async sendBulkBubble(botToken, chatId, linkItems, settings = {}) {
+      const text = this.formatBulkMessage(linkItems, settings);
+      return await this.sendTextMessage(botToken, chatId, text, settings);
     },
 
     sleep(ms) {

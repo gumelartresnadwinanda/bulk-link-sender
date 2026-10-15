@@ -37,8 +37,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnManagerSendAllText = document.getElementById('btnManagerSendAllText');
   const btnExportMenu = document.getElementById('btnExportMenu');
 
-  // Profile selector (in links action bar)
+  // Profile selector & quick combine (in links action bar)
   const mgrActiveProfileSelect = document.getElementById('mgrActiveProfileSelect');
+  const mgrQuickCombineBulk = document.getElementById('mgrQuickCombineBulk');
 
   // Multi-selection bar
   const managerSelectionBar = document.getElementById('managerSelectionBar');
@@ -63,10 +64,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const mgrEditBotToken = document.getElementById('mgrEditBotToken');
   const mgrEditChatId = document.getElementById('mgrEditChatId');
   const mgrEditTopicId = document.getElementById('mgrEditTopicId');
+  const mgrEditPrefix = document.getElementById('mgrEditPrefix');
+  const mgrEditPostfix = document.getElementById('mgrEditPostfix');
   const mgrEditDelay = document.getElementById('mgrEditDelay');
   const mgrEditFormat = document.getElementById('mgrEditFormat');
   const mgrEditDisablePreview = document.getElementById('mgrEditDisablePreview');
   const mgrEditSilent = document.getElementById('mgrEditSilent');
+  const mgrEditCombineBulk = document.getElementById('mgrEditCombineBulk');
   const btnMgrTestProfilePing = document.getElementById('btnMgrTestProfilePing');
   const mgrProfileTestSpinner = document.getElementById('mgrProfileTestSpinner');
   const mgrProfileTestResult = document.getElementById('mgrProfileTestResult');
@@ -200,13 +204,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Update profile selector dropdown (in links action bar)
     mgrActiveProfileSelect.textContent = '';
+    let currentActiveProfile = null;
     profiles.forEach(profile => {
       const opt = document.createElement('option');
       opt.value = profile.id;
       opt.textContent = profile.name + (profile.chatId ? ` (${profile.chatId})` : '');
-      if (profile.id === activeId) opt.selected = true;
+      if (profile.id === activeId) {
+        opt.selected = true;
+        currentActiveProfile = profile;
+      }
       mgrActiveProfileSelect.appendChild(opt);
     });
+
+    if (!currentActiveProfile && profiles.length > 0) {
+      currentActiveProfile = profiles[0];
+    }
+
+    if (mgrQuickCombineBulk && currentActiveProfile) {
+      mgrQuickCombineBulk.checked = Boolean(currentActiveProfile.combineBulk);
+    }
 
     // Update profile cards list
     renderProfileCards(profiles, activeId);
@@ -252,7 +268,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       detailEl.className = 'mgr-profile-card-detail';
 
       if (profile.botToken && profile.chatId) {
-        detailEl.textContent = `Chat: ${profile.chatId}${profile.topicId ? ' · Topic ' + profile.topicId : ''}`;
+        let details = `Chat: ${profile.chatId}${profile.topicId ? ' · Topic ' + profile.topicId : ''}`;
+        if (profile.combineBulk) details += ' · 1 Bubble';
+        if (profile.prefix || profile.postfix) details += ' · Prefix/Postfix';
+        detailEl.textContent = details;
       } else {
         detailEl.textContent = 'Not configured — click Edit to add credentials';
       }
@@ -352,6 +371,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkBotHealth();
   });
 
+  // Quick Combine checkbox toggle
+  if (mgrQuickCombineBulk) {
+    mgrQuickCombineBulk.addEventListener('change', async () => {
+      const activeId = await LinkStorage.getActiveProfileId();
+      if (activeId) {
+        await LinkStorage.updateProfile(activeId, { combineBulk: mgrQuickCombineBulk.checked });
+        await loadProfiles();
+        showAlert(`Profile updated: ${mgrQuickCombineBulk.checked ? 'Combined 1-bubble mode ON' : 'Separate bubbles mode ON'}.`, 'info', 2500);
+      }
+    });
+  }
+
   // Add New Profile button
   btnMgrAddProfile.addEventListener('click', () => {
     openMgrNewProfileForm();
@@ -364,10 +395,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     mgrEditBotToken.value = '';
     mgrEditChatId.value = '';
     mgrEditTopicId.value = '';
+    mgrEditPrefix.value = '';
+    mgrEditPostfix.value = '';
     mgrEditDelay.value = 500;
     mgrEditFormat.value = 'url_only';
     mgrEditDisablePreview.checked = false;
     mgrEditSilent.checked = false;
+    mgrEditCombineBulk.checked = false;
     mgrProfileTestResult.className = 'test-result hidden';
     mgrProfileTestResult.textContent = '';
 
@@ -386,10 +420,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     mgrEditBotToken.value = profile.botToken || '';
     mgrEditChatId.value = profile.chatId || '';
     mgrEditTopicId.value = profile.topicId || '';
+    mgrEditPrefix.value = profile.prefix || '';
+    mgrEditPostfix.value = profile.postfix || '';
     mgrEditDelay.value = profile.delayMs || 500;
     mgrEditFormat.value = profile.messageFormat || 'url_only';
     mgrEditDisablePreview.checked = Boolean(profile.disablePreview);
     mgrEditSilent.checked = Boolean(profile.silentNotification);
+    mgrEditCombineBulk.checked = Boolean(profile.combineBulk);
     mgrProfileTestResult.className = 'test-result hidden';
     mgrProfileTestResult.textContent = '';
 
@@ -442,10 +479,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       botToken: mgrEditBotToken.value.trim(),
       chatId: mgrEditChatId.value.trim(),
       topicId: mgrEditTopicId.value.trim(),
+      prefix: mgrEditPrefix.value,
+      postfix: mgrEditPostfix.value,
       delayMs: parseInt(mgrEditDelay.value, 10) || 500,
       messageFormat: mgrEditFormat.value,
       disablePreview: mgrEditDisablePreview.checked,
-      silentNotification: mgrEditSilent.checked
+      silentNotification: mgrEditSilent.checked,
+      combineBulk: mgrEditCombineBulk.checked
     };
 
     try {
@@ -772,7 +812,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const targetIds = items.map(item => item.id);
-    chrome.runtime.sendMessage({ type: 'START_BULK_SEND', targetIds, title }, (response) => {
+    chrome.runtime.sendMessage({
+      type: 'START_BULK_SEND',
+      targetIds,
+      title,
+      combineBulk: Boolean(profile.combineBulk)
+    }, (response) => {
       if (response && response.success) {
         isSendingActive = true;
       } else {

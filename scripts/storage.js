@@ -18,7 +18,10 @@
     delayMs: 500,
     messageFormat: 'url_only',
     disablePreview: false,
-    silentNotification: false
+    silentNotification: false,
+    prefix: '',
+    postfix: '',
+    combineBulk: false
   };
 
   function genId() {
@@ -85,7 +88,14 @@
         await chrome.storage.local.set({ [STORAGE_KEYS.ACTIVE_PROFILE_ID]: defaultProfile.id });
       }
 
-      return profiles;
+      // Ensure all profiles have the latest default fields
+      return profiles.map(p => ({
+        ...DEFAULT_PROFILE_SETTINGS,
+        ...p,
+        prefix: typeof p.prefix === 'string' ? p.prefix : '',
+        postfix: typeof p.postfix === 'string' ? p.postfix : '',
+        combineBulk: Boolean(p.combineBulk)
+      }));
     },
 
     async saveProfiles(profiles) {
@@ -129,7 +139,10 @@
         delayMs: data.delayMs || 500,
         messageFormat: data.messageFormat || 'url_only',
         disablePreview: Boolean(data.disablePreview),
-        silentNotification: Boolean(data.silentNotification)
+        silentNotification: Boolean(data.silentNotification),
+        prefix: data.prefix || '',
+        postfix: data.postfix || '',
+        combineBulk: Boolean(data.combineBulk)
       });
       profiles.push(newProfile);
       await this.saveProfiles(profiles);

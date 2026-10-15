@@ -126,6 +126,18 @@
             <small class="helper-text">Leave blank unless sending to a specific Telegram Forum Topic</small>
           </div>
 
+          <div class="form-field">
+            <label for="editPrefix">Message Prefix <span style="font-weight: normal; color: var(--text-muted);">(Optional)</span></label>
+            <textarea id="editPrefix" rows="2" placeholder="Text before links, e.g. Daily Links:" class="form-input form-textarea"></textarea>
+            <small class="helper-text">Sent before link(s) in each Telegram bubble</small>
+          </div>
+
+          <div class="form-field">
+            <label for="editPostfix">Message Postfix <span style="font-weight: normal; color: var(--text-muted);">(Optional)</span></label>
+            <textarea id="editPostfix" rows="2" placeholder="Text after links, e.g. #reading" class="form-input form-textarea"></textarea>
+            <small class="helper-text">Sent after link(s) in each Telegram bubble</small>
+          </div>
+
           <div class="form-row">
             <div class="form-field">
               <label for="editDelay">Delay Between Bubbles</label>
@@ -151,6 +163,13 @@
             </label>
           </div>
 
+          <div class="form-field-checkbox">
+            <label class="checkbox-label">
+              <input type="checkbox" id="editCombineBulk">
+              <span>Combine bulk links into 1 bubble (newline per link)</span>
+            </label>
+          </div>
+
           <div class="settings-actions">
             <button id="btnTestProfileConnection" class="btn btn-secondary btn-sm">
               <span id="testProfileSpinner" class="spinner hidden"></span>
@@ -173,6 +192,10 @@
           <select id="activeProfileSelect" class="profile-select-dropdown">
             <!-- Populated dynamically -->
           </select>
+          <label class="quick-combine-label" title="When enabled, bulk links are combined into one Telegram bubble with new lines">
+            <input type="checkbox" id="quickCombineBulk">
+            <span>1 Bubble</span>
+          </label>
         </div>
         <button id="btnSendAllUnsent" class="btn btn-telegram btn-block">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">

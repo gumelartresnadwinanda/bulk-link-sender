@@ -38,7 +38,9 @@ Capture multiple product listings across different stores during comparison shop
 ## Features
 
 - **Active Tab Capture:** Grab the current tab URL and title with a single click or keyboard shortcut (`Alt + Shift + S`).
-- **Per-Bubble Delivery:** Delivers each link as an individual chat bubble for clean media previews and compatibility with external automation bots.
+- **Flexible Message Bubbles:** Choose between sending each link in an individual chat bubble or combining multiple bulk links into a single message bubble (with a new line per link). Single links can still be sent individually.
+- **Per-Profile Prefix & Postfix:** Configure custom header/prefix and footer/postfix text on every profile (e.g., `#links`, introductory notes, or signatures) automatically included around sent links.
+- **Quick 1-Bubble Toggle:** Easily switch between single-bubble and individual-bubble modes directly from the popup and manager toolbars.
 - **Background Execution:** Bulk send jobs run within the background service worker, allowing you to close the popup, switch tabs, or browse freely while sending proceeds.
 - **Multi-Profile Support:** Manage multiple Telegram bot tokens, chat IDs, and topic IDs across separate named profiles with quick dropdown switching.
 - **Forum Topic Support:** Full support for Telegram Supergroup Forum Topics via optional `message_thread_id`.

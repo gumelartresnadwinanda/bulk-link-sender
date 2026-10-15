@@ -53,16 +53,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnToggleEditTokenVisibility = document.getElementById('btnToggleEditTokenVisibility');
   const editChatId = document.getElementById('editChatId');
   const editTopicId = document.getElementById('editTopicId');
+  const editPrefix = document.getElementById('editPrefix');
+  const editPostfix = document.getElementById('editPostfix');
   const editDelay = document.getElementById('editDelay');
   const editFormat = document.getElementById('editFormat');
   const editDisablePreview = document.getElementById('editDisablePreview');
+  const editCombineBulk = document.getElementById('editCombineBulk');
   const btnTestProfileConnection = document.getElementById('btnTestProfileConnection');
   const testProfileSpinner = document.getElementById('testProfileSpinner');
   const profileTestResult = document.getElementById('profileTestResult');
   const btnSaveProfileEdit = document.getElementById('btnSaveProfileEdit');
 
-  // Profile Selector Dropdown (in toolbar)
+  // Profile Selector Dropdown & Quick Combine (in toolbar)
   const activeProfileSelect = document.getElementById('activeProfileSelect');
+  const quickCombineBulk = document.getElementById('quickCombineBulk');
 
   // Toolbar & Filters
   const btnSendAllUnsent = document.getElementById('btnSendAllUnsent');
@@ -203,13 +207,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Render the profile selector dropdown
     activeProfileSelect.textContent = '';
+    let currentActiveProfile = null;
     profiles.forEach(profile => {
       const opt = document.createElement('option');
       opt.value = profile.id;
       opt.textContent = profile.name + (profile.chatId ? ` (${profile.chatId})` : '');
-      if (profile.id === activeId) opt.selected = true;
+      if (profile.id === activeId) {
+        opt.selected = true;
+        currentActiveProfile = profile;
+      }
       activeProfileSelect.appendChild(opt);
     });
+
+    if (!currentActiveProfile && profiles.length > 0) {
+      currentActiveProfile = profiles[0];
+    }
+
+    if (quickCombineBulk && currentActiveProfile) {
+      quickCombineBulk.checked = Boolean(currentActiveProfile.combineBulk);
+    }
 
     // Render profile list in the settings drawer
     renderProfileList(profiles, activeId);
@@ -233,7 +249,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const detailLine = document.createElement('div');
       detailLine.className = 'profile-item-detail';
       if (profile.chatId) {
-        detailLine.textContent = profile.chatId + (profile.topicId ? ` · Topic ${profile.topicId}` : '');
+        let details = profile.chatId + (profile.topicId ? ` · Topic ${profile.topicId}` : '');
+        if (profile.combineBulk) details += ' · 1 Bubble';
+        if (profile.prefix || profile.postfix) details += ' · Prefix/Postfix';
+        detailLine.textContent = details;
       } else {
         detailLine.textContent = 'Not configured';
       }
@@ -318,6 +337,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadProfiles();
   });
 
+  // Quick Combine checkbox toggle
+  if (quickCombineBulk) {
+    quickCombineBulk.addEventListener('change', async () => {
+      const activeId = await LinkStorage.getActiveProfileId();
+      if (activeId) {
+        await LinkStorage.updateProfile(activeId, { combineBulk: quickCombineBulk.checked });
+        await loadProfiles();
+        showBanner(`Profile updated: ${quickCombineBulk.checked ? 'Combined 1-bubble mode ON' : 'Separate bubbles mode ON'}.`, 'info', 2500);
+      }
+    });
+  }
+
   // Add New Profile button
   btnAddProfile.addEventListener('click', () => {
     openNewProfileForm();
@@ -333,9 +364,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnToggleEditTokenVisibility.appendChild(createSvgIcon('eye', 13));
     editChatId.value = '';
     editTopicId.value = '';
+    editPrefix.value = '';
+    editPostfix.value = '';
     editDelay.value = 500;
     editFormat.value = 'url_only';
     editDisablePreview.checked = false;
+    editCombineBulk.checked = false;
     profileTestResult.className = 'test-result hidden';
     profileTestResult.textContent = '';
 
@@ -357,9 +391,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnToggleEditTokenVisibility.appendChild(createSvgIcon('eye', 13));
     editChatId.value = profile.chatId || '';
     editTopicId.value = profile.topicId || '';
+    editPrefix.value = profile.prefix || '';
+    editPostfix.value = profile.postfix || '';
     editDelay.value = profile.delayMs || 500;
     editFormat.value = profile.messageFormat || 'url_only';
     editDisablePreview.checked = Boolean(profile.disablePreview);
+    editCombineBulk.checked = Boolean(profile.combineBulk);
     profileTestResult.className = 'test-result hidden';
     profileTestResult.textContent = '';
 
@@ -424,9 +461,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       botToken: editBotToken.value.trim(),
       chatId: editChatId.value.trim(),
       topicId: editTopicId.value.trim(),
+      prefix: editPrefix.value,
+      postfix: editPostfix.value,
       delayMs: parseInt(editDelay.value, 10) || 500,
       messageFormat: editFormat.value,
-      disablePreview: editDisablePreview.checked
+      disablePreview: editDisablePreview.checked,
+      combineBulk: editCombineBulk.checked
     };
 
     try {
@@ -901,7 +941,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const targetIds = targetItems.map(item => item.id);
-    chrome.runtime.sendMessage({ type: 'START_BULK_SEND', targetIds, title: label }, (response) => {
+    chrome.runtime.sendMessage({
+      type: 'START_BULK_SEND',
+      targetIds,
+      title: label,
+      combineBulk: Boolean(profile.combineBulk)
+    }, (response) => {
       if (response && response.success) {
         // Handled by message listener showing the UI
         isSendingActive = true;

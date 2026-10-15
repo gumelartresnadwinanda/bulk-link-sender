@@ -121,53 +121,105 @@ function stopKeepAlive() {
 }
 
 // Background Bulk Sending Logic
-async function runBackgroundSend(targetIds, title) {
+async function runBackgroundSend(targetIds, title, options = {}) {
   if (isSending) return;
   const profile = await LinkStorage.getActiveProfile();
   if (!profile) return;
   
   const links = await LinkStorage.getLinks();
   const targetItems = links.filter(l => targetIds.includes(l.id));
+  if (targetItems.length === 0) return;
+
+  const combineBulk = options.combineBulk !== undefined ? options.combineBulk : Boolean(profile.combineBulk);
   
   isSending = true;
   abortSend = false;
-  sendStatus = {
-    active: true,
-    title: title,
-    currentIdx: 0,
-    total: targetItems.length,
-    successCount: 0,
-    failCount: 0,
-    currentUrl: ''
-  };
-  
   startKeepAlive();
   
   try {
-    for (let i = 0; i < targetItems.length; i++) {
-      if (abortSend) break;
-      
-      const item = targetItems[i];
-      sendStatus.currentIdx = i + 1;
-      sendStatus.currentUrl = item.domain || item.url;
-      
-      // Broadcast progress update to UI
-      chrome.runtime.sendMessage({ type: 'BULK_SEND_PROGRESS', status: sendStatus }).catch(() => {});
+    if (combineBulk) {
+      // Combined bubble mode: send links with newline per link in one bubble
+      // (Chunked safely if total text exceeds Telegram's message character limit)
+      const chunks = TelegramService.chunkItemsForTelegram(targetItems, profile);
+      sendStatus = {
+        active: true,
+        title: title,
+        currentIdx: 0,
+        total: chunks.length,
+        successCount: 0,
+        failCount: 0,
+        currentUrl: ''
+      };
 
-      const result = await TelegramService.sendSingleBubble(profile.botToken, profile.chatId, item, profile);
-      
-      if (result.success) {
-        await LinkStorage.markStatus(item.id, 'sent');
-        sendStatus.successCount++;
-      } else {
-        await LinkStorage.markStatus(item.id, 'failed', result.error);
-        sendStatus.failCount++;
+      for (let i = 0; i < chunks.length; i++) {
+        if (abortSend) break;
+
+        const chunk = chunks[i];
+        sendStatus.currentIdx = i + 1;
+        sendStatus.currentUrl = chunk.length === 1
+          ? (chunk[0].domain || chunk[0].url)
+          : `${chunk.length} links (bubble ${i + 1}/${chunks.length})`;
+
+        // Broadcast progress update to UI
+        chrome.runtime.sendMessage({ type: 'BULK_SEND_PROGRESS', status: sendStatus }).catch(() => {});
+
+        const result = await TelegramService.sendBulkBubble(profile.botToken, profile.chatId, chunk, profile);
+
+        if (result.success) {
+          for (const item of chunk) {
+            await LinkStorage.markStatus(item.id, 'sent');
+          }
+          sendStatus.successCount += chunk.length;
+        } else {
+          for (const item of chunk) {
+            await LinkStorage.markStatus(item.id, 'failed', result.error);
+          }
+          sendStatus.failCount += chunk.length;
+        }
+
+        // Delay before next chunk (if multiple chunks and not aborted)
+        if (sendStatus.currentIdx < chunks.length && !abortSend) {
+          const delay = profile.delayMs || 500;
+          await TelegramService.sleep(delay);
+        }
       }
-      
-      // Delay before next message (only if not aborted and not the last item)
-      if (sendStatus.currentIdx < targetItems.length && !abortSend) {
-        const delay = profile.delayMs || 500;
-        await TelegramService.sleep(delay);
+    } else {
+      // Individual bubble per link mode
+      sendStatus = {
+        active: true,
+        title: title,
+        currentIdx: 0,
+        total: targetItems.length,
+        successCount: 0,
+        failCount: 0,
+        currentUrl: ''
+      };
+
+      for (let i = 0; i < targetItems.length; i++) {
+        if (abortSend) break;
+        
+        const item = targetItems[i];
+        sendStatus.currentIdx = i + 1;
+        sendStatus.currentUrl = item.domain || item.url;
+        
+        // Broadcast progress update to UI
+        chrome.runtime.sendMessage({ type: 'BULK_SEND_PROGRESS', status: sendStatus }).catch(() => {});
+
+        const result = await TelegramService.sendSingleBubble(profile.botToken, profile.chatId, item, profile);
+        
+        if (result.success) {
+          await LinkStorage.markStatus(item.id, 'sent');
+          sendStatus.successCount++;
+        } else {
+          await LinkStorage.markStatus(item.id, 'failed', result.error);
+          sendStatus.failCount++;
+        }
+        
+        // Delay before next message (only if not aborted and not the last item)
+        if (sendStatus.currentIdx < targetItems.length && !abortSend) {
+          const delay = profile.delayMs || 500;
+          await TelegramService.sleep(delay);
+        }
       }
     }
   } catch (err) {
@@ -205,7 +257,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true });
       } else if (message.type === 'START_BULK_SEND') {
         if (!isSending) {
-          runBackgroundSend(message.targetIds, message.title);
+          runBackgroundSend(message.targetIds, message.title, { combineBulk: message.combineBulk });
           sendResponse({ success: true });
         } else {
           sendResponse({ success: false, error: 'Already sending' });

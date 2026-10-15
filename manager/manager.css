@@ -750,6 +750,34 @@ body {
   border-color: var(--tg-blue);
 }
 
+.mgr-quick-combine-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+}
+
+.mgr-quick-combine-label:hover {
+  border-color: var(--tg-blue);
+  color: var(--tg-blue);
+}
+
+.mgr-quick-combine-label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--tg-blue);
+  margin: 0;
+}
+
 /* ─── Profiles View ─────────────────────────────────────────────────────── */
 .profiles-view-header {
   display: flex;

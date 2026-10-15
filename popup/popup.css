@@ -891,6 +891,35 @@ body {
   box-shadow: 0 0 0 2px rgba(42, 171, 238, 0.15);
 }
 
+.quick-combine-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.quick-combine-label:hover {
+  border-color: var(--tg-blue);
+  color: var(--tg-blue);
+}
+
+.quick-combine-label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--tg-blue);
+  margin: 0;
+}
+
 /* ─── Profiles Section (in settings drawer) ──────────────────────────────── */
 .profiles-section {
   display: flex;
